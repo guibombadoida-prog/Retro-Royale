@@ -1,0 +1,11 @@
+<resources>
+    <style name="GameTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:colorAccent">#CA56EE</item>
+        <item name="android:windowBackground">#172B21</item>
+        <item name="android:navigationBarColor">#172B21</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>
