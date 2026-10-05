@@ -1,0 +1,42 @@
+# Retro Royale — Arena 3D
+
+Play: https://retro-royale-vfx.gabriel-divino1.chatgpt.site
+
+The browser and Android app run the same 3D game and join the same room by its six-character code. Available online modes: **1v1, 2v1, 2v2 and 3v1**. Every participant has their own hand, card cycle and elixir. In asymmetric modes, the solo player's elixir regenerates 2× or 3× faster. All participants must occupy the room and press **Estou pronto** before the match starts.
+
+Characters use genuine 3D meshes with walk, idle, attack preparation, strike, damage and death poses. WebGL renders the scene; a software triangle renderer preserves the 3D geometry when WebGL is unavailable. The portrait HUD follows the supplied mobile layout: blue card panel, four-card hand, next card, segmented elixir, enemy name, timer and round champion abilities. Original character art is retained. Licensed sound clips and particle textures are credited in `public/game/assets/README.md`.
+
+## Champions
+
+All three champions start locked. Starting the first fully ready online battle unlocks **Rei Bombado** for subsequent decks; training and joining an unstarted lobby do not count. The server persists progress and validates every online deck. Each deck and each player's field allow at most **one champion**. The other champions stay locked until additional unlock rules are specified. Abilities require tapping their button, spend that player's elixir and have cooldowns. Choose left, right or both sides in Settings.
+
+Progress is tied to the installation/browser profile. Clearing app/browser data resets that local profile identifier. No account login or cross-device progress transfer is implemented.
+
+## Online synchronization
+
+The host simulates combat at 60 Hz and shares state with every guest. Ordered WebRTC channels carry commands; state updates use an unreliable channel. HTTPS room synchronization provides signaling, heartbeat and a fallback when a direct connection cannot be established. Guests predict their own card cycle/elixir immediately and interpolate authoritative units. Commands are sequenced, bound to the sender and deduplicated. Network latency remains dependent on the connection. Reloading or leaving as host ends the room; disconnected guests can reconnect while the host remains online.
+
+## Web source and checks
+
+Web source is in `web/`; Android source is in `android/`. Start with `cd web`, then install with `pnpm install` and build with `pnpm build`. Checks:
+
+```sh
+node tests/online.test.mjs
+node tests/combat.test.mjs
+node node_modules/typescript/bin/tsc --noEmit
+```
+
+The Node tests cover actual API routes on SQLite with the generated migrations, all team capacities, readiness, server-side champion locks, command deduplication, combat ownership, independent elixir, coordinate mirroring, delayed attack damage and all 3D rigs. They do not replace visual browser QA or testing on a physical Android device.
+
+The Sites deployment uses the Vinext/Cloudflare integration and D1 migrations in `drizzle/`. Use the managed Sites build/publish workflow for this existing hosted site.
+
+## Android
+
+The Android 8+ portrait APK is a small native WebView client that loads the published game over HTTPS. It requires internet access and the Android System WebView. The game is updated with the website, so its assets and server behavior are shared across web and Android. Build with JDK 17, Gradle 8.11.1 and Android SDK 35:
+
+```sh
+cd android
+gradle assembleDebug
+```
+
+The GitHub Actions workflow builds, verifies the APK signature, records SHA-256 and publishes an installable debug artifact. This is a development APK for direct installation, not a Play Store release.
