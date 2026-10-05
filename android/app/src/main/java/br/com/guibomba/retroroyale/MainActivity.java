@@ -25,6 +25,7 @@ public final class MainActivity extends Activity {
     private WebView game;
     private FrameLayout root;
     private View errorView;
+    private boolean mainLoadFailed;
     private final String gameHost = Uri.parse(BuildConfig.GAME_URL).getHost();
 
     @Override public void onCreate(Bundle state) {
@@ -56,11 +57,14 @@ public final class MainActivity extends Activity {
                 }
                 return true;
             }
+            @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                mainLoadFailed = false;
+            }
             @Override public void onPageFinished(WebView view, String url) {
-                if (errorView != null) { root.removeView(errorView); errorView = null; }
+                if (!mainLoadFailed && errorView != null) { root.removeView(errorView); errorView = null; }
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) showOffline();
+                if (request.isForMainFrame()) { mainLoadFailed = true; showOffline(); }
             }
         });
         root.addView(game, new FrameLayout.LayoutParams(-1,-1));
