@@ -35,12 +35,12 @@ export const profileBattles=sqliteTable('profile_battles',{
  profileHash:text('profile_hash').notNull(),code:text('code').notNull(),
 },table=>[primaryKey({columns:[table.profileHash,table.code]})]);
 
-export const googleAccounts=sqliteTable('google_accounts',{
- id:text('id').primaryKey(),googleSub:text('google_sub').notNull(),email:text('email').notNull(),name:text('name').notNull(),profileHash:text('profile_hash').notNull(),created:integer('created').notNull(),
-},table=>[uniqueIndex('google_account_subject').on(table.googleSub)]);
+export const emailAccounts=sqliteTable('email_accounts',{
+ id:text('id').primaryKey(),email:text('email').notNull(),name:text('name').notNull(),profileHash:text('profile_hash').notNull(),created:integer('created').notNull(),
+},table=>[uniqueIndex('account_email').on(table.email)]);
 export const accountSessions=sqliteTable('account_sessions',{
  tokenHash:text('token_hash').primaryKey(),accountId:text('account_id').notNull(),expires:integer('expires').notNull(),
 },table=>[index('account_sessions_expiry').on(table.expires)]);
-export const googleLoginFlows=sqliteTable('google_login_flows',{
- flowHash:text('flow_hash').primaryKey(),pollHash:text('poll_hash').notNull(),guestHash:text('guest_hash').notNull(),stateHash:text('state_hash'),nonce:text('nonce'),verifier:text('verifier'),status:text('status').notNull().default('pending'),accountId:text('account_id'),created:integer('created').notNull(),expires:integer('expires').notNull(),
-},table=>[index('google_login_flows_expiry').on(table.expires),uniqueIndex('google_flow_state').on(table.stateHash)]);
+export const emailLoginCodes=sqliteTable('email_login_codes',{
+ challengeHash:text('challenge_hash').primaryKey(),email:text('email').notNull(),guestHash:text('guest_hash').notNull(),sourceHash:text('source_hash').notNull(),codeHash:text('code_hash').notNull(),attempts:integer('attempts').notNull().default(0),status:text('status').notNull().default('sending'),created:integer('created').notNull(),expires:integer('expires').notNull(),
+},table=>[index('login_codes_email_created').on(table.email,table.created),index('login_codes_guest_created').on(table.guestHash,table.created),index('login_codes_source_created').on(table.sourceHash,table.created),index('login_codes_expiry').on(table.expires)]);

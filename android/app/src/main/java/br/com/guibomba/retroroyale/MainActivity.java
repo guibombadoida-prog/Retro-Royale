@@ -35,7 +35,7 @@ public final class MainActivity extends Activity {
   game.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
     Uri uri=request.getUrl();boolean own="https".equals(uri.getScheme())&&gameHost.equalsIgnoreCase(uri.getHost())&&(uri.getPort()==-1||uri.getPort()==443);
-    if(own&&request.isForMainFrame()&&("/api/account/authorize".equals(uri.getPath())||uri.getPath().startsWith("/downloads/"))){openBrowser(uri);return true;}if(own)return false;
+    if(own&&request.isForMainFrame()&&uri.getPath().startsWith("/downloads/")){openBrowser(uri);return true;}if(own)return false;
     if(request.isForMainFrame()&&("https".equals(uri.getScheme())||"http".equals(uri.getScheme())))openBrowser(uri);return true;
    }
    @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap favicon){mainLoadFailed=false;}
@@ -44,7 +44,7 @@ public final class MainActivity extends Activity {
    @Override public void onReceivedHttpError(WebView view,WebResourceRequest request,android.webkit.WebResourceResponse response){if(request.isForMainFrame()&&response.getStatusCode()>=400){mainLoadFailed=true;pageLoaded=false;showOffline();}}
   });root.addView(game,new FrameLayout.LayoutParams(-1,-1));setContentView(root);watchNetwork();game.loadUrl(BuildConfig.GAME_URL);
  }
- private void openBrowser(Uri uri){try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(ActivityNotFoundException ignored){new AlertDialog.Builder(this).setMessage("Instale ou habilite um navegador para entrar com Google.").setPositiveButton("OK",null).show();}}
+ private void openBrowser(Uri uri){try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(ActivityNotFoundException ignored){new AlertDialog.Builder(this).setMessage("Instale ou habilite um navegador para abrir este link.").setPositiveButton("OK",null).show();}}
  private void watchNetwork(){
   connectivity=(ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);if(connectivity==null)return;
   networkCallback=new ConnectivityManager.NetworkCallback(){
@@ -54,7 +54,7 @@ public final class MainActivity extends Activity {
  }
  private void refreshNetwork(){if(connectivity==null)return;Network active=connectivity.getActiveNetwork();NetworkCapabilities caps=active==null?null:connectivity.getNetworkCapabilities(active);updateNetwork(caps!=null&&caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)&&caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));}
  private void updateNetwork(boolean online,boolean isWifi){boolean recovered=!networkOnline&&online;networkOnline=online;wifi=isWifi;publishNetwork();if(recovered&&!pageLoaded&&mainLoadFailed&&game!=null)game.loadUrl(BuildConfig.GAME_URL);}
- private void publishNetwork(){if(game!=null)game.evaluateJavascript("window.dispatchEvent(new CustomEvent('retro-network',{detail:{online:"+networkOnline+",wifi:"+wifi+"}}))",null);}
+ private void publishNetwork(){if(game!=null)game.evaluateJavascript("window.__retroNetwork={online:"+networkOnline+",wifi:"+wifi+"};window.dispatchEvent(new CustomEvent('retro-network',{detail:window.__retroNetwork}))",null);}
  private void fullscreen(){getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);}
  private void showOffline(){
   if(errorView!=null)return;LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setGravity(17);panel.setPadding(36,36,36,36);panel.setBackgroundColor(Color.rgb(16,61,114));

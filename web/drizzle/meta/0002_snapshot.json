@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "246ff20d-9f43-4f5a-8901-9a7c92d860b8",
+  "id": "c87aabee-b95a-4397-aff2-f3b3882f40e3",
   "prevId": "1fbcc218-217e-4d30-a7ed-deb5eb2871ee",
   "tables": {
     "account_sessions": {
@@ -43,20 +43,13 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "google_accounts": {
-      "name": "google_accounts",
+    "email_accounts": {
+      "name": "email_accounts",
       "columns": {
         "id": {
           "name": "id",
           "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "google_sub": {
-          "name": "google_sub",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -90,10 +83,10 @@
         }
       },
       "indexes": {
-        "google_account_subject": {
-          "name": "google_account_subject",
+        "account_email": {
+          "name": "account_email",
           "columns": [
-            "google_sub"
+            "email"
           ],
           "isUnique": true
         }
@@ -103,18 +96,18 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "google_login_flows": {
-      "name": "google_login_flows",
+    "email_login_codes": {
+      "name": "email_login_codes",
       "columns": {
-        "flow_hash": {
-          "name": "flow_hash",
+        "challenge_hash": {
+          "name": "challenge_hash",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
-        "poll_hash": {
-          "name": "poll_hash",
+        "email": {
+          "name": "email",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -127,26 +120,27 @@
           "notNull": true,
           "autoincrement": false
         },
-        "state_hash": {
-          "name": "state_hash",
+        "source_hash": {
+          "name": "source_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "nonce": {
-          "name": "nonce",
+        "code_hash": {
+          "name": "code_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "verifier": {
-          "name": "verifier",
-          "type": "text",
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "status": {
           "name": "status",
@@ -154,14 +148,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'pending'"
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "default": "'sending'"
         },
         "created": {
           "name": "created",
@@ -179,19 +166,36 @@
         }
       },
       "indexes": {
-        "google_login_flows_expiry": {
-          "name": "google_login_flows_expiry",
+        "login_codes_email_created": {
+          "name": "login_codes_email_created",
+          "columns": [
+            "email",
+            "created"
+          ],
+          "isUnique": false
+        },
+        "login_codes_guest_created": {
+          "name": "login_codes_guest_created",
+          "columns": [
+            "guest_hash",
+            "created"
+          ],
+          "isUnique": false
+        },
+        "login_codes_source_created": {
+          "name": "login_codes_source_created",
+          "columns": [
+            "source_hash",
+            "created"
+          ],
+          "isUnique": false
+        },
+        "login_codes_expiry": {
+          "name": "login_codes_expiry",
           "columns": [
             "expires"
           ],
           "isUnique": false
-        },
-        "google_flow_state": {
-          "name": "google_flow_state",
-          "columns": [
-            "state_hash"
-          ],
-          "isUnique": true
         }
       },
       "foreignKeys": {},

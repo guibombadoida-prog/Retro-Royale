@@ -118,6 +118,6 @@ function setupArena(){
   addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
  }
  PROGRESS.init().then(()=>NET.restore());ACCOUNT.init();CONNECTION.init();
- $('copyRecovery').onclick=()=>ACCOUNT.copyRecovery();$('restoreRecovery').onclick=()=>ACCOUNT.restoreRecovery();$('googleLoginBtn').onclick=()=>ACCOUNT.login();$('logoutBtn').onclick=()=>ACCOUNT.logout();$('playerName').addEventListener('change',()=>PROGRESS.changed());
+ $('copyRecovery').onclick=()=>ACCOUNT.copyRecovery();$('restoreRecovery').onclick=()=>ACCOUNT.restoreRecovery();$('emailLoginForm').onsubmit=e=>{e.preventDefault();ACCOUNT.requestCode();};$('codeLoginForm').onsubmit=e=>{e.preventDefault();ACCOUNT.verifyCode();};$('resendCodeBtn').onclick=()=>ACCOUNT.requestCode(true);$('changeEmailBtn').onclick=()=>ACCOUNT.changeEmail();$('loginCode').addEventListener('input',e=>{e.target.value=e.target.value.replace(/[^0-9]/g,'').slice(0,6);});$('logoutBtn').onclick=()=>ACCOUNT.logout();$('playerName').addEventListener('change',()=>PROGRESS.changed());
 }
 setupArena();resize();openMenu();requestAnimationFrame(frame);

@@ -3279,6 +3279,7 @@ let deckSel = ['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bo
 const LS = 'ponte-coroas-deck';
 try { const saved = JSON.parse(localStorage.getItem(LS)||'null');
       if(Array.isArray(saved) && saved.length===8 && new Set(saved).size===8 && saved.every(id=>CARD[id]&&!CARD[id].oculta)) deckSel = saved; } catch(e){}
+PROGRESS.localDeck=deckSel.slice();
 deckSel=PROGRESS.sanitize(deckSel);
 function buildPool(){
   const pool = $('pool'); pool.innerHTML='';

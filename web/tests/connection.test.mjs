@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
 let requestCount=0,reconnected=0,lost=0,saved=0,accountInit=0,now=1,fetcher=async()=>Response.json({ok:true,service:'retro-royale'});
-const nodes=new Map(),listeners=new Map(),navigator={onLine:true};
+const nodes=new Map(),listeners=new Map(),parentListeners=new Map(),navigator={onLine:true};
+const parent={addEventListener(name,fn){parentListeners.set(name,fn);}};
 const document={hidden:false,getElementById(id){if(!nodes.has(id))nodes.set(id,{hidden:false,dataset:{},textContent:''});return nodes.get(id);},addEventListener(name,fn){listeners.set(name,fn);}};
-const ctx=vm.createContext({navigator,document,window:{},NET:{active:false,room:null,peerPaused:false,remotePaused:false,stale:()=>false,reconnect(){reconnected++;},connectionLost(){lost++;}},ACCOUNT:{init(){accountInit++;},flow:null},PROGRESS:{loaded:true,dirty:true,saveNow(){saved++;}},fetch:async(...args)=>{requestCount++;return fetcher(...args);},AbortSignal,Date,Response,setTimeout:()=>++now,clearTimeout(){},addEventListener(name,fn){listeners.set(name,fn);}});
+const ctx=vm.createContext({navigator,document,window:{},parent,NET:{active:false,room:null,peerPaused:false,remotePaused:false,stale:()=>false,reconnect(){reconnected++;},connectionLost(){lost++;}},ACCOUNT:{init(){accountInit++;},flow:null},PROGRESS:{loaded:true,dirty:true,saveNow(){saved++;}},fetch:async(...args)=>{requestCount++;return fetcher(...args);},AbortSignal,Date,Response,setTimeout:()=>++now,clearTimeout(){},addEventListener(name,fn){listeners.set(name,fn);}});
 vm.runInContext(readFileSync('public/game/connection.js','utf8'),ctx);const run=s=>vm.runInContext(s,ctx);
 run('CONNECTION.init()');await new Promise(r=>setImmediate(r));assert.equal(run('CONNECTION.available()'),true);assert.equal(document.getElementById('connectionBanner').hidden,true);
 navigator.onLine=false;listeners.get('offline')();assert.equal(run('CONNECTION.available()'),false);assert.equal(lost,1);assert.match(document.getElementById('connectionMessage').textContent,/Wi-Fi/);const before=requestCount;await run('CONNECTION.probe()');assert.equal(requestCount,before);
@@ -11,4 +12,5 @@ fetcher=async()=>Response.json({ok:true,service:'retro-royale'});run('NET.room={
 run('CONNECTION.native({online:false,wifi:true})');assert.equal(run('CONNECTION.available()'),false);assert.equal(run('CONNECTION.wifi'),true);const calls=requestCount;await run('CONNECTION.probe()');assert.equal(requestCount,calls);
 run('CONNECTION.nativeOnline=true');let finish;fetcher=()=>new Promise(r=>finish=r);const pending=run('CONNECTION.probe()');run('CONNECTION.lost()');finish(Response.json({ok:true,service:'retro-royale'}));await pending;assert.equal(run('CONNECTION.state'),'offline');
 run('CONNECTION.nativeOnline=true');fetcher=async()=>Response.json({ok:true,service:'other-service'});await run('CONNECTION.probe()');assert.equal(run('CONNECTION.available()'),false);
+parentListeners.get('retro-network')({detail:{online:false,wifi:true}});assert.equal(run('CONNECTION.available()'),false);assert.equal(run('CONNECTION.wifi'),true);
 console.log('Connection monitor: offline events, captive Wi-Fi, failed health check, automatic recovery, save retry and stale-response protection passed.');

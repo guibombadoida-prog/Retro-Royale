@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
+const normal=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'],champion=['reibombado',...normal.slice(0,7)],token='a'.repeat(72);
+function setup({pending=null,account=null,cloudDeck=null}={}){
+ const memory=new Map([['retro-profile-token',token]]);if(pending)memory.set('retro-cloud-pending',JSON.stringify(pending));
+ const fields=new Map(),get=id=>{if(!fields.has(id))fields.set(id,{textContent:'',value:'',setAttribute(){}});return fields.get(id);};let writes=0;
+ const server={token,battles:1,unlocked:['reibombado'],revision:0,account,deck:cloudDeck,settings:null};const document={body:{dataset:{abilityPosition:'right'}},getElementById:get,querySelectorAll:()=>[]};
+ const ctx=vm.createContext({document,localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},fetch:async(url,options)=>{const body=JSON.parse(options.body);if(body.save){writes++;server.revision++;server.deck=body.deck;server.settings=body.settings;}return Response.json(server);},Response,AbortSignal,setTimeout:()=>1,clearTimeout(){},G:{state:'menu'},NET:{room:null},CONNECTION:{available:()=>false},ACCOUNT:{user:account,setUser(u){this.user=u;}},AU:{on:true},PREF:{fx:true,light:false},FX:{},CHAMP_UI:{},diffSel:1,deckSel:normal.slice(),buildPool(){},syncDeck(){},toast(){}});
+ vm.runInContext(readFileSync('public/game/progress.js','utf8'),ctx);return {run:s=>vm.runInContext(s,ctx),memory,get,writes:()=>writes};
+}
+let t=setup();t.run('PROGRESS.localDeck='+JSON.stringify(champion));await t.run('PROGRESS.init()');assert.equal(t.run('deckSel[0]'),'reibombado');assert.equal(t.run('PROGRESS.loaded'),true);
+t=setup({account:{id:'account-a',name:'A',email:'a@example.test'},cloudDeck:normal,pending:{owner:'account-a',revision:0,state:{deck:champion,settings:{abilityPosition:'both'}}}});await t.run('PROGRESS.init()');assert.equal(t.run('deckSel[0]'),'reibombado');assert.equal(t.run('document.body.dataset.abilityPosition'),'both');assert.equal(t.run('PROGRESS.dirty'),true);assert.equal(await t.run('PROGRESS.saveNow()'),false);assert.ok(t.memory.has('retro-cloud-pending'));
+t.run('CONNECTION.available=()=>true');assert.equal(await t.run('PROGRESS.saveNow()'),true);assert.equal(t.writes(),1);assert.equal(t.run('PROGRESS.dirty'),false);assert.equal(t.memory.has('retro-cloud-pending'),false);
+t=setup({account:{id:'account-b'},cloudDeck:normal,pending:{owner:'account-a',revision:0,state:{deck:champion,settings:{abilityPosition:'left'}}}});await t.run('PROGRESS.init()');assert.equal(t.run('deckSel[0]'),'cavaleiro');assert.equal(t.run('PROGRESS.dirty'),false);
+console.log('Progress client: existing unlocked deck preserved, offline edits retained, recovery saved once and account ownership respected.');

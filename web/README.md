@@ -10,7 +10,7 @@ Characters use genuine 3D meshes with walk, idle, attack preparation, strike, da
 
 All three champions start locked. Starting the first fully ready online battle unlocks **Rei Bombado** for subsequent decks; training and joining an unstarted lobby do not count. The server persists progress and validates every online deck. Each deck and each player's field allow at most **one champion**. The other champions stay locked until additional unlock rules are specified. Abilities require tapping their button, spend that player's elixir and have cooldowns. Choose left, right or both sides in Settings.
 
-Progress is tied to the installation/browser profile. Clearing app/browser data resets that local profile identifier. No account login or cross-device progress transfer is implemented.
+Visitor progress is tied to the installation/browser profile and can be transferred with its recovery code. Verify an email address to save and recover the same progression, deck and preferences on the website and Android.
 
 ## Online synchronization
 
@@ -43,7 +43,7 @@ The GitHub Actions workflow builds, verifies the APK signature, records SHA-256 
 
 ## Account saves and connection recovery (1.5)
 
-The menu now offers Google sign-in, server-backed deck/settings saves and visitor recovery codes. Google sign-in needs the owner's OAuth client configuration; see `docs/GOOGLE_LOGIN.md`. Without those credentials the Google button remains disabled and visitor profiles continue to work.
+The menu offers a six-digit email verification code, server-backed deck/settings saves and visitor recovery codes. Sending login codes needs the owner's transactional email configuration; see `docs/EMAIL_LOGIN.md`. Without it, the form reports that email login is not yet available and visitor profiles continue to work.
 
 The browser checks both offline events and a no-cache server health endpoint. Android also observes validated internet connectivity, including Wi-Fi without internet and a switch to mobile data. During a connection outage, new online inputs are blocked and the host pauses combat instead of advancing a disconnected simulation. The original room, command acknowledgements and card cycle are kept. Recovery retries for up to 90 seconds, renegotiates direct channels, and preserves the HTTPS fallback. After the grace period, the room closes normally; saved progression is retained. A loaded game is not reloaded on a network change. Only an initial page that failed to load is retried by the native shell.
 
@@ -51,7 +51,9 @@ Additional checks:
 
 ```sh
 node tests/account.test.mjs
+node tests/email-client.test.mjs
 node tests/connection.test.mjs
+node tests/progress.test.mjs
 ```
 
-Google tests use signed test JWTs and a mocked Google transport; live Google sign-in still requires real credentials and browser/device verification. Physical Wi-Fi switching and visual QA require a real device/browser.
+Account tests use real API routes and a mocked email transport to validate expiry, attempt limits, concurrent sends, one-time verification and cross-device restoration. Live delivery requires a configured sender. Physical Wi-Fi switching and visual QA require a real device/browser.

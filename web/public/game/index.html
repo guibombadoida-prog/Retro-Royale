@@ -35,7 +35,19 @@
  <div class="wrap">
   <nav id="brandbar"><a class="brand" href="/" target="_top"><img src="/favicon.svg" alt=""><span>RETRO<br><b>ROYALE</b></span></a><button id="settingsBtn" class="squareButton" aria-label="Configurações">⚙</button></nav>
   <div class="menuHero"><canvas id="crest" width="92" height="92"></canvas><div><h1>Ponte das Coroas</h1><p>Monte seu baralho. Entre na arena.</p></div></div>
-  <section class="accountCard" aria-label="Conta e progresso"><img src="/favicon.svg" alt="" class="accountMark"><div><b id="accountName">Seu progresso, com você</b><p id="accountStatus">Verificando opções de conta…</p></div><button id="googleLoginBtn" class="googleButton" disabled><span class="googleMark" aria-hidden="true">G</span><span>Entrar com Google</span></button><button id="logoutBtn" class="chip" hidden>Sair da conta</button><small id="cloudStatus" role="status">Jogando como visitante</small><a id="androidUpdate" href="/downloads/retro-royale.apk" hidden>Baixar APK atualizado</a></section>
+  <section class="accountCard" aria-label="Conta e progresso">
+   <img src="/favicon.svg" alt="" class="accountMark"><div><b id="accountName">Salve seu progresso</b><p id="accountStatus">Verificando opções de conta…</p></div>
+   <form id="emailLoginForm" class="emailLoginForm" novalidate>
+    <label for="loginEmail">Seu Gmail ou e-mail</label><input id="loginEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" enterkeyhint="send" placeholder="seunome@gmail.com" required>
+    <button id="sendCodeBtn" class="btn pri" type="submit" disabled>Enviar código</button>
+   </form>
+   <form id="codeLoginForm" class="emailLoginForm" novalidate hidden>
+    <p id="codeDestination"></p><label for="loginCode">Código de 6 dígitos</label><input id="loginCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" enterkeyhint="done" placeholder="000000" required aria-describedby="codeExpiry">
+    <small id="codeExpiry"></small><button id="verifyCodeBtn" class="btn gold" type="submit">Confirmar e entrar</button>
+    <div class="loginActions"><button id="resendCodeBtn" class="chip" type="button">Reenviar código</button><button id="changeEmailBtn" class="chip" type="button">Trocar e-mail</button></div>
+   </form>
+   <button id="logoutBtn" class="chip" type="button" hidden>Sair da conta</button><small id="cloudStatus" role="status" aria-live="polite">Jogando como visitante</small><a id="androidUpdate" target="_top" href="/downloads/retro-royale.apk">Baixar APK Android</a>
+  </section>
   <details class="profileTransfer"><summary>Transferir progresso de visitante</summary><p>Guarde seu código antes de trocar de aparelho ou reinstalar o APK. Ele recupera o perfil de visitante salvo no servidor.</p><button id="copyRecovery" class="chip" type="button">Copiar meu código</button><label for="recoveryCode">Código de recuperação</label><input id="recoveryCode" type="password" maxlength="72" autocomplete="off" spellcheck="false" placeholder="Cole o código do seu outro aparelho"><button id="restoreRecovery" class="chip" type="button">Restaurar perfil</button><small id="recoveryStatus" role="status"></small></details>
   <div class="menuTabs"><button class="on" id="deckTab">Baralho</button><button id="collectionTab">Coleção</button></div>
   <div class="deckBox"><div class="secttl"><h2>Seu baralho</h2><span id="deckCnt">8 / 8</span></div><div id="deckPreview" aria-label="Oito cartas do baralho"></div><div class="deckSummary"><span id="avgCost"></span><span>Máximo: 1 campeão</span></div></div>
