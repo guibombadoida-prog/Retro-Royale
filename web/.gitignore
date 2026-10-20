@@ -49,3 +49,5 @@ next-env.d.ts
 /android/.gradle/
 /android/build/
 /android/app/build/
+
+!.env.example

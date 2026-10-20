@@ -4,6 +4,8 @@ import vm from 'node:vm';
 import {DatabaseSync} from 'node:sqlite';
 import ts from 'typescript';
 import {webcrypto} from 'node:crypto';
+import {harness} from './api-harness.mjs';
+const profileUtils=harness().load('lib/player-profile.ts');
 const normal=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
 const database=new DatabaseSync(':memory:');
 for(const name of readdirSync('drizzle').filter(n=>n.endsWith('.sql')).sort())database.exec(readFileSync('drizzle/'+name,'utf8'));
@@ -15,7 +17,7 @@ class Query{
  async run(){const out=database.prepare(this.sql).run(...this.values);return {meta:{changes:Number(out.changes)}};}
 }
 const db={prepare:sql=>new Query(sql),batch:async queries=>{database.exec('BEGIN');try{const result=[];for(const q of queries)result.push(await q.run());database.exec('COMMIT');return result;}catch(e){database.exec('ROLLBACK');throw e;}}};
-function route(path){let source=readFileSync(path,'utf8').replace("import { getRoomDb } from '@/db';","const getRoomDb=()=>DB;");const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;const ctx=vm.createContext({DB:db,exports:{},Request,Response,URL,crypto:webcrypto,TextEncoder,console});vm.runInContext(code,ctx);return ctx.exports.POST;}
+function route(path){let source=readFileSync(path,'utf8').replace("import { getRoomDb } from '@/db';","const getRoomDb=()=>DB;");const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;const ctx=vm.createContext({DB:db,exports:{},require:name=>{if(name==='@/lib/player-profile')return profileUtils;throw new Error(name);},Request,Response,URL,crypto:webcrypto,TextEncoder,console});vm.runInContext(code,ctx);return ctx.exports.POST;}
 const room=route('app/api/room/route.ts'),profile=route('app/api/profile/route.ts');
 async function call(fn,body,origin='https://game.test'){const response=await fn(new Request('https://game.test/api',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,...await response.json()};}
 let assertions=0;

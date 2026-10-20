@@ -3315,6 +3315,7 @@ function syncDeck(){
   $('startBtn').disabled = n!==8||!eligible;
   $('onlineBtn').disabled = n!==8||!eligible;
   showDeckPreview();
+  if(PROGRESS.loaded)PROGRESS.changed?.();
   $('startHint').textContent = n===8 ? 'Pronto' : `Faltam ${8-n}`;
   try { localStorage.setItem(LS, JSON.stringify(deckSel)); } catch(e){}
   for(const ch of document.querySelectorAll('[data-preset]')) ch.classList.remove('on');
@@ -3332,7 +3333,7 @@ let diffSel = 1;
 for(const ch of document.querySelectorAll('[data-diff]')){
   ch.addEventListener('click', ()=>{
     AU.init(); AU.sfx('ui');
-    diffSel = +ch.dataset.diff;
+    diffSel = +ch.dataset.diff;PROGRESS.changed?.();
     for(const o of document.querySelectorAll('[data-diff]')) o.classList.toggle('on', o===ch);
   });
 }
@@ -3343,6 +3344,7 @@ function openMenu(){
   document.body.classList.add('in-menu');
   drawCrest($('crest'));
   $('menu').classList.add('on'); $('result').classList.remove('on');
+  if(!PROGRESS.dirty)PROGRESS.applyCloud?.();
   buildPool(); syncDeck();resize();
 }
 function launch(){
@@ -3364,6 +3366,7 @@ let last = performance.now(), acc = 0, uiT = 0, avgFrame = 16.7;
 const STEP = 1/60;
 let lastSimulation=performance.now();
 function advanceSimulation(now){
+  if(NET.active&&NET.isPaused()){lastSimulation=now;acc=0;stepFX(.016);return;}
   const dt=Math.min(1.5,Math.max(0,(now-lastSimulation)/1000));lastSimulation=now;
   if(G.state==='battle'||G.state==='over'){
     acc+=dt;let guard=0;

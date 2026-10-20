@@ -65,3 +65,12 @@ assert.equal(run('CHAMP_UI.buttons.length'),2);assert.equal(run('CHAMP_UI.button
 assert.equal(run('G.fields.length'),0);run('CHAMP_UI.buttons[0].button.onclick()');assert.equal(run('G.fields.length'),1);assert.equal(run('G.players[0].elixir'),8);
 run('CHAMP_UI.buttons[1].button.onclick()');assert.equal(run('G.fields.length'),1);assert.equal(run('G.players[0].elixir'),8);
 console.log('Champion touch UI: left/right copies share ownership, manual activation, elixir cost and cooldown.');
+// A disconnected host preserves combat time and player balances until the link returns.
+run("globalThis.CONNECTION={available:()=>false,paint(){}};NET.active=true;NET.role='host';NET.peerPaused=false;NET.remotePaused=false;G.state='battle';");
+const pausedTime=run('G.timeLeft'),pausedElixir=run('G.players[0].elixir'),pausedUnits=run('G.units.length');
+run('advanceSimulation(1000000)');assert.equal(run('G.timeLeft'),pausedTime);assert.equal(run('G.players[0].elixir'),pausedElixir);assert.equal(run('NET.playOwn(0,224,1400)'),false);assert.equal(run('G.units.length'),pausedUnits);
+run("NET.acks[1]=0;NET.results[1]=[];NET.inboxes.clear();G.players[1].hand=['cavaleiro','arqueiras','goblins','gigante'];G.players[1].elixir=10;NET.acceptInput(1,{seq:1,idx:0,card:'cavaleiro',x:224,y:1400});");assert.equal(run('NET.acks[1]'),0);assert.equal(run('G.players[1].elixir'),10);
+run("CONNECTION.available=()=>true;NET.acceptInput(1,{seq:1,idx:0,card:'cavaleiro',x:224,y:1400});");assert.equal(run('NET.acks[1]'),1);assert.equal(run('G.players[1].elixir'),7);
+run("NET.acceptInput(1,{seq:1,idx:0,card:'cavaleiro',x:224,y:1400});");assert.equal(run('G.players[1].elixir'),7);
+run('advanceSimulation(1000100)');assert.ok(pausedTime-run('G.timeLeft')<.2);
+console.log('Network combat: disconnected input blocked, clock frozen, ordered queued input charged once and no time jump on reconnect.');

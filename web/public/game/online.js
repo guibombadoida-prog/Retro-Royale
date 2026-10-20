@@ -34,6 +34,7 @@ const TEAMS={
  }
 };
 const NET={
+ peerPaused:false,remotePaused:false,
  room:null,role:null,playerId:0,team:0,mode:'1v1',active:false,peers:new Map(),members:[],
  pending:new Map(),inboxes:new Map(),acks:{},results:{},inputSeq:0,snapshotSeq:0,seenState:0,
  timer:null,polling:false,generation:0,lastPacket:0,lastSnapshot:0,lastSend:0,lastPing:0,
@@ -46,6 +47,7 @@ const NET={
   }finally{clearTimeout(timer);}
  },
  async enter(action,code){
+  if(typeof CONNECTION!=='undefined'&&!CONNECTION.available())throw new Error('Conecte à internet para jogar online.');
   if(deckSel.length!==8)throw new Error('Escolha oito cartas primeiro.');
   if(!PROGRESS.loaded)await PROGRESS.init();
   if(!PROGRESS.loaded)throw new Error('Não foi possível carregar seu progresso. Tente novamente.');
@@ -79,21 +81,22 @@ const NET={
  },
  async connect(id,offer){
   if(!window.RTCPeerConnection||this.peers.has(id))return;
-  const gen=this.generation,peer={id,dc:null,sc:null,pc:null,ping:null};
+  const gen=this.generation,peer={id,dc:null,sc:null,pc:null,ping:null,exchangeId:null,offer,offerPosted:false};
   try{
    peer.pc=new RTCPeerConnection({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}]});this.peers.set(id,peer);
    peer.pc.ondatachannel=e=>this.wire(peer,e.channel);
    if(this.role==='host'){
+    peer.exchangeId=crypto.randomUUID();
     this.wire(peer,peer.pc.createDataChannel('commands',{ordered:true}));
     this.wire(peer,peer.pc.createDataChannel('state',{ordered:false,maxRetransmits:0}));
     await peer.pc.setLocalDescription(await peer.pc.createOffer());await this.gather(peer.pc);
     if(gen!==this.generation)return;
-    await this.api('signal',{target:id,sdp:JSON.stringify(peer.pc.localDescription)});
+    await this.api('signal',{target:id,sdp:JSON.stringify({...peer.pc.localDescription.toJSON(),exchangeId:peer.exchangeId})});peer.offerPosted=true;
    }else{
-    await peer.pc.setRemoteDescription(JSON.parse(offer));
+    peer.exchangeId=JSON.parse(offer).exchangeId;await peer.pc.setRemoteDescription(JSON.parse(offer));
     await peer.pc.setLocalDescription(await peer.pc.createAnswer());await this.gather(peer.pc);
     if(gen!==this.generation)return;
-    await this.api('signal',{sdp:JSON.stringify(peer.pc.localDescription)});
+    await this.api('signal',{sdp:JSON.stringify({...peer.pc.localDescription.toJSON(),exchangeId:peer.exchangeId})});
    }
   }catch(e){/* Authenticated HTTPS relay carries the same commands if RTC is blocked. */}
  },
@@ -102,10 +105,10 @@ const NET={
    if(this.role==='host'&&p.id!==0){
     if(!this.peers.has(p.id))this.connect(p.id);
     const peer=this.peers.get(p.id);
-    if(p.answer&&peer?.pc&&!peer.pc.remoteDescription&&!peer.signaling){
+    if(p.answer&&peer?.pc&&peer.offerPosted&&JSON.parse(p.answer).exchangeId===peer.exchangeId&&!peer.pc.remoteDescription&&!peer.signaling){
      peer.signaling=true;try{await peer.pc.setRemoteDescription(JSON.parse(p.answer));}catch(e){}finally{peer.signaling=false;}
     }
-   }else if(this.role==='guest'&&p.id===this.playerId&&p.offer&&!this.peers.has(0))this.connect(0,p.offer);
+   }else if(this.role==='guest'&&p.id===this.playerId&&p.offer){const old=this.peers.get(0);if(old&&old.offer!==p.offer){old.pc?.close();this.peers.delete(0);}if(!this.peers.has(0))this.connect(0,p.offer);}
   }
  },
  wire(peer,ch){
@@ -137,18 +140,18 @@ const NET={
    if(this.role==='host'||host?.seen>Date.now()-8000)this.lastPacket=performance.now();
    if(this.active){
     const absent=data.players.filter(p=>p.id!==this.playerId&&p.seen<Date.now()-12000);
-    if(absent.length)$('netBadge').textContent='RECONECTANDO · '+absent.length;
-    if(absent.some(p=>p.seen<Date.now()-35000)){this.disconnect('Um jogador perdeu a conexão. Crie outra sala.');return;}
+    this.peerPaused=this.role==='host'&&absent.length>0;if(absent.length)$('netBadge').textContent='RECONECTANDO · '+absent.length;if(typeof CONNECTION!=='undefined')CONNECTION.paint();
+    if(absent.some(p=>p.seen<Date.now()-90000)){this.disconnect('Um jogador perdeu a conexão. Crie outra sala.');return;}
    }
   }catch(e){
    if(gen!==this.generation)return;
    if([401,403,404,410].includes(e.status)){this.disconnect(e.message);return;}
    $('roomStatus').textContent=e.message+' Tentando reconectar…';
-   if(this.active&&performance.now()-this.lastPacket>35000){this.disconnect('Conexão perdida. Crie outra sala.');return;}
+   if(this.active&&performance.now()-this.lastPacket>90000){this.disconnect('Conexão perdida. Crie outra sala.');return;}
   }finally{
    if(gen===this.generation){this.polling=false;if(this.room){
     const allDirect=this.role==='host'?this.members.filter(p=>p.id!==0).every(p=>this.direct(this.peers.get(p.id))):this.direct(this.peers.get(0));
-    this.timer=setTimeout(()=>this.poll(),this.active?(allDirect?1100:160):600);
+    this.timer=setTimeout(()=>this.poll(),typeof CONNECTION!=='undefined'&&!CONNECTION.available()?2000:this.active?(allDirect?1100:160):600);
    }}
   }
  },
@@ -163,14 +166,15 @@ const NET={
   for(const p of members){this.acks[p.id]=0;this.results[p.id]=[];}
   try{this.clock=new Worker('/game/clock.js');this.clock.onmessage=()=>{if(document.hidden&&this.active){const now=performance.now();advanceSimulation(now);this.frame(1/30,now);}};}catch(e){}
  },
- playOwn(idx,x,y){return this.role==='guest'?this.input(idx,x,y):TEAMS.play(this.playerId,idx,x,y);},
+ playOwn(idx,x,y){if(this.isPaused())return false;return this.role==='guest'?this.input(idx,x,y):TEAMS.play(this.playerId,idx,x,y);},
  abilityOwn(unitId,id){
+  if(this.isPaused())return false;
   if(this.role==='host')return TEAMS.ability(this.playerId,unitId,id);
   const u=G.units.find(v=>v.id===unitId&&v.playerId===this.playerId&&!v.dead),state=championAbilityState(u,id);
   return state.ready?this.ability(unitId,id,state.spec):false;
  },
  input(idx,x,y){
-  if(!this.active||G.state!=='battle'||this.pending.size>=8)return false;
+  if(!this.active||this.isPaused()||G.state!=='battle'||this.pending.size>=8)return false;
   const card=G.hand.ally[idx],c=CARD[card];
   if(!c||G.elixir.ally<c.custo||cartaTravada('ally',idx)||c.tipo!=='feitico'&&!canDeploy('ally',x,y))return false;
   const p={seq:++this.inputSeq,idx,card,x,y:this.team===1?WH-y:y};
@@ -179,7 +183,7 @@ const NET={
   this.sendInput(p);return true;
  },
  ability(unitId,ability,spec){
-  if(!this.active||G.state!=='battle'||this.pending.size>=8)return false;
+  if(!this.active||this.isPaused()||G.state!=='battle'||this.pending.size>=8)return false;
   const u=G.units.find(v=>v.id===unitId&&v.playerId===this.playerId&&!v.dead);
   if(!u||!championAbilityState(u,ability).ready)return false;
   const p={seq:++this.inputSeq,kind:'ability',unitId,ability};
@@ -198,7 +202,7 @@ const NET={
    if(!Number.isSafeInteger(p.unitId)||!Object.values(CHAMP_ABILITIES).some(a=>a.some(s=>s.id===p.ability)))return;
   }else if(!Number.isInteger(p.idx)||p.idx<0||p.idx>3||!Number.isFinite(p.x)||!Number.isFinite(p.y))return;
   let inbox=this.inboxes.get(playerId);if(!inbox){inbox=new Map();this.inboxes.set(playerId,inbox);}inbox.set(p.seq,p);
-  while(inbox.has((this.acks[playerId]||0)+1)){
+  while(!this.isPaused()&&inbox.has((this.acks[playerId]||0)+1)){
    const seq=(this.acks[playerId]||0)+1,q=inbox.get(seq);inbox.delete(seq);this.acks[playerId]=seq;
    const ok=q.kind==='ability'?TEAMS.ability(playerId,q.unitId,q.ability):TEAMS.play(playerId,q.idx,q.x,q.y,q.card);
    (this.results[playerId]||=[]).push({seq,ok,reason:ok?'':q.kind==='ability'?'Habilidade indisponível':'Jogada recusada'});this.results[playerId]=this.results[playerId].slice(-16);
@@ -207,7 +211,7 @@ const NET={
  capture(){
   const clean=v=>JSON.parse(JSON.stringify(v,(k,x)=>['target','attackTarget','owner','from','bwCD','pet','filhos'].includes(k)?undefined:k==='card'?(x?.id||x):typeof x==='number'?Math.round(x*1000)/1000:x));
   return {seq:++this.snapshotSeq,acks:{...this.acks},results:this.results,mode:this.mode,players:clean(G.players),
-   state:G.state,t:G.t,timeLeft:G.timeLeft,overtime:G.overtime,ended:G.ended,
+   networkPaused:this.isPaused(),state:G.state,t:G.t,timeLeft:G.timeLeft,overtime:G.overtime,ended:G.ended,
    units:clean(G.units),towers:clean(G.towers),projs:clean(G.projs),fields:clean(G.fields),
    crowns:G.crowns,open:G.open,stats:G.stats,allyLog:G.allyLog,foeLog:G.foeLog,
    fx:clean({parts:FX.parts.slice(-180),rings:FX.rings.slice(-24),bolts:FX.bolts.slice(-16),decals:FX.decals.slice(-28),texts:FX.texts.slice(-16),trails:[],shake:FX.shake,flash:FX.flash,flashColor:FX.flashColor})};
@@ -227,6 +231,7 @@ const NET={
  },
  apply(s){
   if(this.role!=='guest'||!s||!Number.isSafeInteger(s.seq)||s.seq<=this.seenState||!Array.isArray(s.units)||s.units.length>500||!Array.isArray(s.towers)||s.towers.length!==6||!Array.isArray(s.players))return;
+  this.remotePaused=s.networkPaused===true;
   const own=s.players.find(p=>p.id===this.playerId);
   if(!own||own.team!==this.team||own.hand?.length!==4||!own.hand.every(id=>CARD[id])||!CARD[own.next])return;
   if(!this.active){this.active=true;this.startView();}
@@ -259,10 +264,11 @@ const NET={
  },
  frame(dt,now){
   if(!this.active)return;
+  if(typeof CONNECTION!=='undefined')CONNECTION.paint();
   if(this.role==='guest'){
    const a=clamp((now-this.lastSnapshot)/(this.direct(this.peers.get(0))?80:190),0,1);
-   for(const u of G.units){u.x=lerp(u.fromX,u.netX,a);u.y=lerp(u.fromY,u.netY,a);u.z=lerp(u.fromZ,u.netZ,a);u.ph+=dt*(u.moving?9:2);u.atk=Math.max(0,u.atk-dt*3.6);u.hurt=Math.max(0,u.hurt-dt*4.5);if(u.deploy<=0&&u.stun<=0)for(const k in u.abilityCD)u.abilityCD[k]=Math.max(0,u.abilityCD[k]-dt);}
-   for(const p of this.pending.values())if(now-p.at>700){p.at=now;this.sendInput(p.input,true);}
+   for(const u of G.units){u.x=lerp(u.fromX,u.netX,a);u.y=lerp(u.fromY,u.netY,a);u.z=lerp(u.fromZ,u.netZ,a);u.ph+=dt*(u.moving?9:2);u.atk=Math.max(0,u.atk-dt*3.6);u.hurt=Math.max(0,u.hurt-dt*4.5);if(!this.isPaused()&&u.deploy<=0&&u.stun<=0)for(const k in u.abilityCD)u.abilityCD[k]=Math.max(0,u.abilityCD[k]-dt);}
+   for(const p of this.pending.values())if(!this.isPaused()&&now-p.at>700){p.at=now;this.sendInput(p.input,true);}
   }else if(now-this.lastSend>=66){
    this.lastSend=now;let state=null;
    for(const peer of this.peers.values())if(peer.sc?.readyState==='open'&&peer.sc.bufferedAmount<150000){
@@ -275,6 +281,10 @@ const NET={
    $('netBadge').textContent=this.mode+' · '+(direct?'DIRETO':'ONLINE')+(latency!==null?' '+latency+' ms':'');
   }
  },
+ stale(){return this.active&&this.role==='guest'&&performance.now()-this.lastPacket>5000;},
+ isPaused(){return this.active&&((typeof CONNECTION!=='undefined'&&!CONNECTION.available())||this.peerPaused||this.remotePaused||this.stale());},
+ connectionLost(){if(this.active){acc=0;lastSimulation=performance.now();}},
+ reconnect(){if(!this.room)return;for(const peer of this.peers.values())peer.pc?.close();this.peers.clear();this.lastPacket=performance.now();this.remotePaused=false;clearTimeout(this.timer);if(!this.polling)this.poll();},
  restore(){
   try{const saved=JSON.parse(sessionStorage.getItem('retro-room'));if(!saved||!saved.code||saved.token?.length!==72||!Object.hasOwn(GAME_MODES,saved.mode))return;this.room={code:saved.code,token:saved.token};this.role=saved.role;this.playerId=saved.playerId;this.team=saved.team;this.mode=saved.mode;
    if(this.role==='host'){this.close();toast('A sala foi encerrada ao recarregar. Crie outra sala.',T.gold);return;}
@@ -284,7 +294,7 @@ const NET={
  leave(){this.close();},
  close(notify=true){
   if(this.room&&notify)this.api('leave').catch(()=>{});
-  this.generation++;clearTimeout(this.timer);this.room=null;this.active=false;this.polling=false;
+  this.peerPaused=false;this.remotePaused=false;this.generation++;clearTimeout(this.timer);this.room=null;this.active=false;this.polling=false;
   this.clock?.terminate();this.clock=null;for(const p of this.peers.values())p.pc?.close();this.peers.clear();this.members=[];this.pending.clear();this.inboxes.clear();this.role=null;G.players=null;G.actorId=undefined;
   try{sessionStorage.removeItem('retro-room');}catch(e){}
   $('netBadge').textContent='TREINO';$('menuBtn').textContent='×';$('pauseBtn').disabled=false;$('againBtn').textContent='Revanche';

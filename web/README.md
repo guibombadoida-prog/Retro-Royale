@@ -40,3 +40,18 @@ gradle assembleDebug
 ```
 
 The GitHub Actions workflow builds, verifies the APK signature, records SHA-256 and publishes an installable debug artifact. This is a development APK for direct installation, not a Play Store release.
+
+## Account saves and connection recovery (1.5)
+
+The menu now offers Google sign-in, server-backed deck/settings saves and visitor recovery codes. Google sign-in needs the owner's OAuth client configuration; see `docs/GOOGLE_LOGIN.md`. Without those credentials the Google button remains disabled and visitor profiles continue to work.
+
+The browser checks both offline events and a no-cache server health endpoint. Android also observes validated internet connectivity, including Wi-Fi without internet and a switch to mobile data. During a connection outage, new online inputs are blocked and the host pauses combat instead of advancing a disconnected simulation. The original room, command acknowledgements and card cycle are kept. Recovery retries for up to 90 seconds, renegotiates direct channels, and preserves the HTTPS fallback. After the grace period, the room closes normally; saved progression is retained. A loaded game is not reloaded on a network change. Only an initial page that failed to load is retried by the native shell.
+
+Additional checks:
+
+```sh
+node tests/account.test.mjs
+node tests/connection.test.mjs
+```
+
+Google tests use signed test JWTs and a mocked Google transport; live Google sign-in still requires real credentials and browser/device verification. Physical Wi-Fi switching and visual QA require a real device/browser.

@@ -35,7 +35,7 @@ public final class MainActivity extends Activity {
   game.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
     Uri uri=request.getUrl();boolean own="https".equals(uri.getScheme())&&gameHost.equalsIgnoreCase(uri.getHost())&&(uri.getPort()==-1||uri.getPort()==443);
-    if(own&&request.isForMainFrame()&&"/api/account/authorize".equals(uri.getPath())){openBrowser(uri);return true;}if(own)return false;
+    if(own&&request.isForMainFrame()&&("/api/account/authorize".equals(uri.getPath())||uri.getPath().startsWith("/downloads/"))){openBrowser(uri);return true;}if(own)return false;
     if(request.isForMainFrame()&&("https".equals(uri.getScheme())||"http".equals(uri.getScheme())))openBrowser(uri);return true;
    }
    @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap favicon){mainLoadFailed=false;}
@@ -49,7 +49,7 @@ public final class MainActivity extends Activity {
   connectivity=(ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);if(connectivity==null)return;
   networkCallback=new ConnectivityManager.NetworkCallback(){
    @Override public void onCapabilitiesChanged(Network network,NetworkCapabilities caps){final boolean online=caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)&&caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);final boolean isWifi=caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);runOnUiThread(()->updateNetwork(online,isWifi));}
-   @Override public void onLost(Network network){runOnUiThread(()->updateNetwork(false,false));}
+   @Override public void onLost(Network network){runOnUiThread(()->refreshNetwork());}
   };connectivity.registerDefaultNetworkCallback(networkCallback);refreshNetwork();
  }
  private void refreshNetwork(){if(connectivity==null)return;Network active=connectivity.getActiveNetwork();NetworkCapabilities caps=active==null?null:connectivity.getNetworkCapabilities(active);updateNetwork(caps!=null&&caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)&&caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));}

@@ -1,4 +1,5 @@
 import { getRoomDb } from '@/db';
+import { profileFor } from '@/lib/player-profile';
 
 const CARDS = new Set(['cavaleiro','arqueiras','goblins','esqueletos','gigante','ariete','colosso','arcanista','bombardeiro','morcegos','draco','canhao','bobina','bolide','saraivada','estalo','vortice','reibombado','pretobranco','boneca']);
 const ABILITIES = new Set(['bomba','imaginacao','nucleo','realizacao','esboco','rascunho','tracado','invocar']);
@@ -15,9 +16,9 @@ function playerName(value:unknown) {return typeof value==='string'?value.trim().
 async function hash(token:string) {return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))).map(x=>x.toString(16).padStart(2,'0')).join('');}
 const token = () => crypto.randomUUID()+crypto.randomUUID();
 const slotsFor = (mode:string) => [...Array(MODES[mode][0]).fill(0),...Array(MODES[mode][1]).fill(1)];
-async function profileDeck(db:D1Database,b:{profileToken?:string;deck:unknown}){
+async function profileDeck(db:D1Database,request:Request,b:{profileToken?:string;deck:unknown}){
  if(typeof b.profileToken!=='string'||b.profileToken.length!==72)fail('Aguarde seu perfil carregar.');
- const digest=await hash(b.profileToken);
+ const {profileHash:digest}=await profileFor(request,db,b.profileToken);
  const profile=await db.prepare('SELECT unlocked FROM player_profiles WHERE token_hash=?').bind(digest).first<{unlocked:string}>();
  if(!profile)fail('Seu perfil não foi encontrado.',403);
  const cards=JSON.parse(deck(b.deck)),champions=cards.filter((id:string)=>['reibombado','pretobranco','boneca'].includes(id));
@@ -35,7 +36,7 @@ export async function POST(request:Request) {
   const db=getRoomDb(),now=Date.now();
   if(b.action==='create') {
    const mode=b.mode??'1v1';if(typeof mode!=='string'||!Object.hasOwn(MODES,mode))fail('Modo inválido.');
-   const {cards,profileHash}=await profileDeck(db,b),secret=token(),digest=await hash(secret),name=playerName(b.name);
+   const {cards,profileHash}=await profileDeck(db,request,b),secret=token(),digest=await hash(secret),name=playerName(b.name);
    await db.batch([
     db.prepare('DELETE FROM team_inputs WHERE code IN (SELECT code FROM team_rooms WHERE expires<?)').bind(now),
     db.prepare('DELETE FROM room_players WHERE code IN (SELECT code FROM team_rooms WHERE expires<?)').bind(now),
@@ -57,7 +58,7 @@ export async function POST(request:Request) {
   if(room.status==='closed')fail('A partida foi encerrada porque um jogador saiu.',410);
   if(b.action==='join') {
    if(room.status!=='waiting')fail('Esta partida já começou.',409);
-   const {cards,profileHash}=await profileDeck(db,b),secret=token(),digest=await hash(secret),name=playerName(b.name);
+   const {cards,profileHash}=await profileDeck(db,request,b),secret=token(),digest=await hash(secret),name=playerName(b.name);
    const host=await db.prepare('SELECT seen FROM room_players WHERE code=? AND slot=0').bind(b.code).first<{seen:number}>();
    if(!host||host.seen<now-90000)fail('O criador da sala está desconectado.',409);
    const desired=b.team==='auto'||b.team===undefined?null:Number(b.team);
@@ -88,7 +89,7 @@ export async function POST(request:Request) {
    const target=role==='host'?b.target:own.slot;
    if(!Number.isInteger(target)||target<1||target>=slotsFor(room.mode).length)fail('Jogador inválido.');
    const field=role==='host'?'offer':'answer';
-   await db.prepare('UPDATE room_players SET '+field+'=? WHERE code=? AND slot=?').bind(b.sdp,b.code,target).run();return json({ok:true});
+   await db.prepare('UPDATE room_players SET '+field+'=?'+(role==='host'?',answer=NULL':'')+' WHERE code=? AND slot=?').bind(b.sdp,b.code,target).run();return json({ok:true});
   }
   if(b.action==='input') {
    if(role!=='guest'||room.status!=='playing')fail('Ação inválida.',403);
