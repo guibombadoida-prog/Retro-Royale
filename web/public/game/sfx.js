@@ -8,7 +8,7 @@
  AU.init=function(){
   baseInit();if(!this.ctx)return;if(this.ctx.state==='suspended')this.ctx.resume().catch(()=>{});
   if(loading)return;loading=true;
-  for(const name of files)fetch('/game/assets/sfx/'+name+'.ogg').then(r=>{if(!r.ok)throw new Error('sfx');return r.arrayBuffer();}).then(b=>this.ctx.decodeAudioData(b)).then(b=>buffers.set(name,b)).catch(()=>{});
+  for(const name of files)fetch('assets/sfx/'+name+'.ogg').then(r=>{if(!r.ok)throw new Error('sfx');return r.arrayBuffer();}).then(b=>this.ctx.decodeAudioData(b)).then(b=>buffers.set(name,b)).catch(()=>{});
  };
  AU.sfx=function(name,volume=1){
   const choices=sounds[name],ready=choices?.map(i=>buffers.get(files[i])).filter(Boolean);

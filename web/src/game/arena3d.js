@@ -14,7 +14,7 @@ const particleMax=1200;
 let particleTextures;
 function textures(){
  if(!particleTextures){const loader=new T.TextureLoader();particleTextures={ready:{value:0}};let loaded=0;
-  for(const [key,file] of [['smokeMap','smoke_01'],['fireMap','fire_01'],['sparkMap','spark_01'],['magicMap','magic_01']])particleTextures[key]={value:loader.load('/game/assets/vfx/'+file+'.png',()=>{if(++loaded===4)particleTextures.ready.value=1;})};
+  for(const [key,file] of [['smokeMap','smoke_01'],['fireMap','fire_01'],['sparkMap','spark_01'],['magicMap','magic_01']])particleTextures[key]={value:loader.load('assets/vfx/'+file+'.png',()=>{if(++loaded===4)particleTextures.ready.value=1;})};
  }return particleTextures;
 }
 class ParticleCloud{

@@ -164,7 +164,7 @@ const NET={
   if(members.length!==GAME_MODES[this.mode].reduce((a,b)=>a+b,0))return;
   this.active=true;this.startView();TEAMS.init(members,this.mode);
   for(const p of members){this.acks[p.id]=0;this.results[p.id]=[];}
-  try{this.clock=new Worker('/game/clock.js');this.clock.onmessage=()=>{if(document.hidden&&this.active){const now=performance.now();advanceSimulation(now);this.frame(1/30,now);}};}catch(e){}
+  try{this.clock=new Worker('clock.js');this.clock.onmessage=()=>{if(document.hidden&&this.active){const now=performance.now();advanceSimulation(now);this.frame(1/30,now);}};}catch(e){}
  },
  playOwn(idx,x,y){if(this.isPaused())return false;return this.role==='guest'?this.input(idx,x,y):TEAMS.play(this.playerId,idx,x,y);},
  abilityOwn(unitId,id){

@@ -1,6 +1,8 @@
 # Retro Royale — Arena 3D
 
-Play: https://retro-royale-vfx.gabriel-divino1.chatgpt.site
+Website: https://guibombadoida-prog.github.io/Retro-Royale/ (training in the browser, cards, APK download)
+
+Online server: https://retro-royale-vfx.gabriel-divino1.chatgpt.site
 
 The browser and Android app run the same 3D game and join the same room by its six-character code. Available online modes: **1v1, 2v1, 2v2 and 3v1**. Every participant has their own hand, card cycle and elixir. In asymmetric modes, the solo player's elixir regenerates 2× or 3× faster. All participants must occupy the room and press **Estou pronto** before the match starts.
 
@@ -30,6 +32,14 @@ The Node tests cover actual API routes on SQLite with the generated migrations, 
 
 The Sites deployment uses the Vinext/Cloudflare integration and D1 migrations in `drizzle/`. Use the managed Sites build/publish workflow for this existing hosted site.
 
+## Website (GitHub Pages)
+
+`site/index.html` is the home page. `node tools/build-pages.mjs` assembles `_site/` from it and from `web/public/` (the game), reads the card list straight from `engine.js`, switches `game/config.js` to static mode and fails on any missing or absolute (`/game/...`) path. `.github/workflows/pages.yml` runs that build on pull requests and publishes it from `main`.
+
+GitHub Pages only hosts static files, so the published game runs **training against the AI** with preferences kept in the browser. Online rooms, email accounts and cloud saves need the API: on the static site those controls are hidden and "Batalhar online" opens the server version (`ONLINE_URL` in `tools/build-pages.mjs`). Game paths are relative, so the same files work at `/game/` on the server and at `/Retro-Royale/game/` on Pages.
+
+One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
+
 ## Android
 
 The Android 8+ portrait APK is a small native WebView client that loads the published game over HTTPS. It requires internet access and the Android System WebView. The game is updated with the website, so its assets and server behavior are shared across web and Android. Build with JDK 17, Gradle 8.11.1 and Android SDK 35:
@@ -39,7 +49,7 @@ cd android
 gradle assembleDebug
 ```
 
-The GitHub Actions workflow builds, verifies the APK signature, records SHA-256 and publishes an installable debug artifact. This is a development APK for direct installation, not a Play Store release.
+The GitHub Actions workflow builds, verifies the APK signature, records SHA-256 and publishes an installable debug artifact. On `main` it also replaces the `android-latest` pre-release, which is where the website and the in-game "Baixar APK Android" link download from. This is a development APK for direct installation, not a Play Store release.
 
 ## Account saves and connection recovery (1.5)
 

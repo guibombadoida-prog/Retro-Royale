@@ -1,4 +1,4 @@
-@font-face{font-family:Royale;src:url('/game/assets/fonts/royale.ttf') format('truetype');font-display:swap}
+@font-face{font-family:Royale;src:url('assets/fonts/royale.ttf') format('truetype');font-display:swap}
 :root{color-scheme:dark;--ally:#32bafa;--foe:#ff4087;--gold:#ffd34f;--elixir:#ee4add;--mute:#c3d9ed;--bone:#fff;--deck-h:clamp(114px,34.5vw,184px)}
 *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;width:100%}
 body{overflow:hidden;background:#152b21;font-family:Royale,'Arial Rounded MT Bold',system-ui,sans-serif;color:#fff;user-select:none;touch-action:none;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
@@ -53,3 +53,7 @@ dialog label{display:block;font-size:13px;margin:11px 0 4px}input,select{width:1
 #connectionBanner{position:fixed;left:8px;right:8px;top:max(7px,env(safe-area-inset-top));z-index:90;max-width:535px;margin:auto;display:flex;align-items:center;gap:9px;border:2px solid #ffc94e;border-radius:8px;background:#573812ed;box-shadow:0 4px 18px #0008;padding:9px;font:12px/1.4 system-ui,sans-serif;color:#fff3cb}#connectionBanner img{width:32px;height:35px;object-fit:contain;flex:none}#connectionMessage{flex:1}#retryConnection{padding:6px 8px;border:1px solid #cf9a3d;border-radius:5px;background:#ffe29b;color:#372609;font:600 11px system-ui,sans-serif;white-space:nowrap}
 
 .profileTransfer{margin:0 0 14px}.profileTransfer label{display:block;font:12px system-ui;margin:12px 0 5px}.profileTransfer input{margin-bottom:8px}.profileTransfer button{margin-top:8px}.profileTransfer small{display:block;font:12px/1.5 system-ui;color:#f4dd8d;margin-top:8px}
+/* Modo site (GitHub Pages, sem API): só o treino roda aqui; conta, transferência e salas ficam na versão com servidor. */
+.siteNote{display:none;font:11px/1.45 system-ui,sans-serif;color:#cee7f6;margin:-2px 0 10px}
+html[data-site=estatico] .siteNote{display:block}
+html[data-site=estatico] :is(.emailLoginForm,.profileTransfer,.modeChoices){display:none!important}

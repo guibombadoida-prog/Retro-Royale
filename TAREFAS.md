@@ -20,6 +20,12 @@ Legenda: **[verificado]** foi testado numa auditoria; **[não verificado]** é p
 
 ## 1. Hospedagem própria (decisão pendente do dono)
 
+**Feito em 25/10/2026:** site próprio no **GitHub Pages** (`site/index.html` + `tools/build-pages.mjs` + `.github/workflows/pages.yml`). Página inicial com as cartas, como jogar, modos e download do APK, e o jogo em **modo site** (só treino; online e conta abrem o servidor atual). [verificado] build, caminhos relativos e treino em navegador servindo `_site/` em `/Retro-Royale/`, sem nenhuma chamada a `/api`. [não verificado] a publicação de verdade.
+
+- [ ] **Passo do dono, uma vez só:** no GitHub, *Settings → Pages → Build and deployment → Source: GitHub Actions*. Depois rodar o workflow "Site no GitHub Pages" (ou fazer merge na `main`).
+
+O que continua pendente é o **servidor** (online, contas, progresso):
+
 Problema: o README e o APK apontam para `https://retro-royale-vfx.gabriel-divino1.chatgpt.site`, que está em outra conta. Se esse deploy sumir, o APK cai na tela offline e o jogo inteiro deixa de existir.
 
 O GitHub Pages **não serve** sozinho: ele só hospeda arquivos estáticos e o jogo precisa de backend (salas, contas, progresso). No GitHub Pages só o treino funcionaria.
@@ -31,12 +37,12 @@ Plano recomendado **[não verificado]**: conta própria no Cloudflare (gratuita)
 - Cadastrar os segredos `RESEND_API_KEY` e `LOGIN_EMAIL_FROM` (login por e-mail).
 - Criar um workflow do GitHub Actions para build e deploy.
 - `web/.openai/hosting.json`, `web/build/sites-vite-plugin.ts` e os `scripts/*` de "managed-linux" são do fluxo do ChatGPT Sites. Descobrir o que pode sair e o que precisa ficar; não apagar antes de o deploy novo funcionar.
-- Depois de ter o domínio novo, trocar a URL em: `README.md`, `web/README.md`, `android/app/build.gradle` (`GAME_URL`) e conferir o rodapé de `public/game/index.html`.
+- Depois de ter o domínio novo, trocar a URL em: `README.md`, `web/README.md`, `android/app/build.gradle` (`GAME_URL`), `ONLINE_URL` em `tools/build-pages.mjs` e conferir o rodapé de `public/game/index.html`.
 - Precisa de decisão e de contas do dono: domínio, conta Cloudflare, conta Resend.
 
 ## 2. Link do APK
 
-O botão "Baixar APK Android" aponta para `/downloads/retro-royale.apk`, que **não existe** no repositório. Opções: publicar o APK em GitHub Releases e apontar o link para lá, ou colocar o arquivo em `web/public/downloads/`, ou remover o botão. Há workflow de build em `.github/workflows/build-android.yml`; conferir o que ele publica.
+**Feito em 25/10/2026 [não verificado no GitHub]:** o `build-android.yml`, na `main`, recria o pré-release `android-latest` com o APK. O botão do jogo e o da página inicial apontam para `https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk`. O workflow roda sozinho no merge (o próprio arquivo mudou); depois disso, conferir se o release apareceu e se o link baixa. A versão do ChatGPT Sites só ganha o link novo quando for republicada.
 
 ## 3. Modelos e animações (rigs R6 do Roblox) — o trabalho principal
 

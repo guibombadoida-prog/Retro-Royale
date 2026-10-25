@@ -47,6 +47,7 @@ function togglePause(){
  const paused=G.state==='battle';G.state=paused?'paused':'battle';$('pauseOverlay').hidden=!paused;$('pauseBtn').textContent=paused?'▶':'Ⅱ';
 }
 function openOnline(){
+ if(typeof RR_SITE!=='undefined'&&RR_SITE.estatico){if(RR_SITE.online)window.open(RR_SITE.online,'_blank','noopener');else $('startHint').textContent='O modo online precisa do servidor do jogo.';return;}
  if(deckSel.length!==8){$('startHint').textContent='Escolha oito cartas para jogar online.';return;}
  $('roomEntry').hidden=!!NET.room;$('roomLobby').hidden=!NET.room;$('roomStatus').textContent='';
  if(!$('onlineDialog').open)$('onlineDialog').showModal();
@@ -80,7 +81,7 @@ function setupArena(){
  for(const b of document.querySelectorAll('button[data-mode]'))b.onclick=()=>chooseMode(b.dataset.mode);$('matchMode').onchange=()=>chooseMode($('matchMode').value);
  $('deckTab').onclick=()=>{$('deckDetails').open=false;$('deckTab').classList.add('on');$('collectionTab').classList.remove('on');};
  $('collectionTab').onclick=()=>{$('deckDetails').open=true;$('collectionTab').classList.add('on');$('deckTab').classList.remove('on');$('deckDetails').scrollIntoView({block:'nearest'});};
- $('onlineBtn').onclick=openOnline;
+ $('onlineBtn').onclick=openOnline;if(typeof RR_SITE!=='undefined'&&RR_SITE.estatico&&RR_SITE.online)$('onlineBtn').textContent='Batalhar online ↗';
  $('closeOnline').onclick=()=>{if(NET.room)NET.close();$('onlineDialog').close();};
  $('onlineDialog').addEventListener('cancel',()=>{if(NET.room)NET.close();});
  $('createRoom').onclick=()=>roomAction('create');$('joinRoom').onclick=()=>roomAction('join');

@@ -21,8 +21,10 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
 ├── CLAUDE.md, TAREFAS.md        este guia e a lista de pendências
 ├── README.md                    visão geral (em inglês)
 ├── index.html                   protótipo antigo de arquivo único; NÃO é servido pelo app
+├── site/index.html              página inicial do site no GitHub Pages
+├── tools/build-pages.mjs        monta o site do GitHub Pages em _site/ (ignorado pelo git)
 ├── tools/tripo-generate.js      gerador de modelos Tripo3D (não usado pelo jogo)
-├── .github/workflows/           build-android.yml, tripo-generate.yml
+├── .github/workflows/           pages.yml, build-android.yml, tripo-generate.yml
 ├── android/                     app Android (WebView), Gradle
 └── web/                         tudo do site e do jogo
     ├── app/                     Next.js (vinext): page.tsx + rotas de API
@@ -39,6 +41,7 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
     │   ├── progress.js          perfil/progresso, baralho, sincronização na nuvem
     │   ├── account.js           login por e-mail
     │   ├── connection.js        monitor de conexão e banner offline
+    │   ├── config.js            onde o jogo está hospedado (RR_SITE); modo site sem API
     │   ├── sfx.js, clock.js
     │   ├── arena3d.bundle.js    BUNDLE GERADO do 3D (não edite à mão)
     │   └── assets/              fonts/, sfx/, vfx/ + README com créditos
@@ -52,7 +55,11 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
 
 ## 3. Arquitetura do cliente (a parte mais importante)
 
-O jogo **não passa por bundler** exceto o 3D. `public/game/index.html` carrega `connection.js`, `clock.js`, `sfx.js`, `progress.js`, `engine.js`, `online.js`, `account.js`, `ui.js` e `arena3d.bundle.js` como `<script>` clássicos. Eles compartilham **escopo global** (`G`, `CARD`, `CARDS`, `NET`, `PROGRESS`, `TEAMS`, `deckSel`, `TILE`...). Por isso um nome novo pode colidir com outro arquivo, e a ordem dos scripts importa.
+O jogo **não passa por bundler** exceto o 3D. `public/game/index.html` carrega `connection.js`, `clock.js`, `sfx.js`, `progress.js`, `engine.js`, `online.js`, `account.js`, `ui.js` e `arena3d.bundle.js` como `<script>` clássicos. Eles compartilham **escopo global** (`G`, `CARD`, `CARDS`, `NET`, `PROGRESS`, `TEAMS`, `deckSel`, `TILE`...). Por isso um nome novo pode colidir com outro arquivo, e a ordem dos scripts importa. Antes de todos, no `<head>`, vem `config.js` com `RR_SITE`.
+
+### Modo site (GitHub Pages)
+
+`config.js` define `RR_SITE={estatico:false,online:''}`. O build do GitHub Pages publica uma cópia com `estatico:true`: não existe `/api`, então `connection.js` não monitora nada, `progress.js` guarda as preferências só no navegador (chave `retro-cloud-pending`) e nunca tenta salvar, `account.js` não chama a API, o CSS (`html[data-site=estatico]`) esconde login, transferência e modos online, e "Batalhar online" abre `RR_SITE.online` em outra aba. **Todo código novo que chama `/api` precisa respeitar `RR_SITE.estatico`.**
 
 ### engine.js (seções numeradas por comentário)
 
@@ -109,7 +116,8 @@ Visitante: token de 72 caracteres hex em `localStorage` (`retro-profile-token`),
 - Tabelas: `rooms`, `inputs`, `team_rooms`, `room_players`, `team_inputs`, `player_profiles`, `profile_battles`, `email_accounts`, `account_sessions`, `email_login_codes`.
 - Segredos (nunca no código): `RESEND_API_KEY`, `LOGIN_EMAIL_FROM`. Sem eles o login por e-mail aparece como "será liberado em breve".
 - Validação de cartas no servidor: `CARDS` em `app/api/room/route.ts` e `CARD_IDS` em `lib/player-profile.ts`. Os dois **precisam** ter exatamente os mesmos ids do `CARDS` do engine.
-- Hoje o deploy é pelo fluxo gerenciado do ChatGPT Sites (`web/.openai/hosting.json`, `web/build/sites-vite-plugin.ts`, `scripts/`). O site publicado está em uma conta que não é do dono (ver `TAREFAS.md`).
+- Hoje o deploy com servidor é pelo fluxo gerenciado do ChatGPT Sites (`web/.openai/hosting.json`, `web/build/sites-vite-plugin.ts`, `scripts/`). O site publicado está em uma conta que não é do dono (ver `TAREFAS.md`).
+- O site próprio do dono é o **GitHub Pages** (`https://guibombadoida-prog.github.io/Retro-Royale/`): `.github/workflows/pages.yml` roda `node tools/build-pages.mjs` em pull requests e publica a partir da `main`. Ele junta `site/index.html` (a lista de cartas vem do `CARDS` do engine.js) com uma cópia de `web/public/` e falha se algum caminho for absoluto ou não existir. Só o treino roda lá; o endereço do servidor online fica em `ONLINE_URL` no `tools/build-pages.mjs`.
 
 ## 5. Android (android/)
 
@@ -130,6 +138,7 @@ Não há Gradle wrapper no repositório; o CI (`build-android.yml`) usa `setup-g
 5. Não use `localStorage` fora do que já existe (`retro-profile-token`, `retro-cloud-pending`, `ponte-coroas-deck`, `retro-ability-position`).
 6. Todo texto visível ao jogador é em português do Brasil.
 7. O jogo precisa continuar jogável sem WebGL (fallback por software) e em tela de celular em retrato.
+8. Caminhos de arquivos do jogo são **relativos** (`arena.css`, `assets/sfx/...`, `../favicon.svg`), nunca `/game/...`: no GitHub Pages o jogo fica em `/Retro-Royale/game/`. Só `/api/...` continua absoluto. O `tools/build-pages.mjs` confere o HTML e o CSS.
 
 ## 7. Como rodar
 
@@ -144,6 +153,14 @@ pnpm build             # build completo (já roda build:game antes)
 ```
 
 Para testar só o cliente do jogo, sem API, qualquer servidor estático servindo `web/public/` abre `/game/index.html` e o **treino** funciona (o online e a conta precisam da API).
+
+Para ver o site do GitHub Pages como ele vai ao ar (a partir da raiz do repositório):
+
+```sh
+node tools/build-pages.mjs                         # gera _site/
+mkdir -p /tmp/pages && ln -sfn "$PWD/_site" /tmp/pages/Retro-Royale
+python3 -m http.server 8000 --directory /tmp/pages  # abra http://localhost:8000/Retro-Royale/
+```
 
 ## 8. Testes
 
