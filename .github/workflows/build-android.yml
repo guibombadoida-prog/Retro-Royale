@@ -15,6 +15,16 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      # Com o servidor da Cloudflare no ar, o app abre ele (online completo); sem ele, abre o GitHub Pages (treino).
+      - name: Escolher o endereço que o app abre
+        id: jogo
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ONLINE_URL: ${{ vars.ONLINE_URL }}
+        run: |
+          servidor=$(node tools/cloudflare.mjs endereco | sed -n 's/^url=//p')
+          echo "url=${servidor:-https://guibombadoida-prog.github.io/Retro-Royale/}game/index.html?platform=android" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -35,6 +45,8 @@ jobs:
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Compilar aplicativo
         working-directory: android
+        env:
+          RR_GAME_URL: ${{ steps.jogo.outputs.url }}
         run: gradle --no-daemon assembleDebug
       - name: Verificar assinatura e preparar APK
         run: |
@@ -56,10 +68,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          GAME_URL: ${{ steps.jogo.outputs.url }}
         run: |
           gh release delete android-latest --yes --cleanup-tag || true
           gh release create android-latest \
             artifacts/retro-royale-android.apk artifacts/retro-royale-android.apk.sha256 \
             --target "$GITHUB_SHA" --prerelease \
             --title "Retro Royale Android (último build)" \
-            --notes "APK de desenvolvimento gerado automaticamente a partir de $GITHUB_SHA. Instalação direta no Android 8 ou mais novo; não é uma versão da Play Store."
+            --notes "APK de desenvolvimento gerado automaticamente a partir de $GITHUB_SHA. Instalação direta no Android 8 ou mais novo; não é uma versão da Play Store.
+
+          Abre: $GAME_URL"

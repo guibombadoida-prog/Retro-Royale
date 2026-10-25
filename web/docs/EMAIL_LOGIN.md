@@ -4,7 +4,7 @@ O jogador informa o Gmail ou e-mail, recebe seis números e confirma o código n
 
 ## Ativar o envio
 
-Configure estes dois segredos no ambiente do site:
+Cadastre estes dois segredos no GitHub (*Settings → Secrets and variables → Actions*). O workflow "Servidor na Cloudflare" envia os dois para o Worker no próximo deploy:
 
 - `RESEND_API_KEY`: chave de envio da conta Resend do responsável pelo jogo.
 - `LOGIN_EMAIL_FROM`: remetente de um domínio verificado, por exemplo `Retro Royale <login@seu-dominio.com>`.

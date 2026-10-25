@@ -18,31 +18,28 @@ Legenda: **[verificado]** foi testado numa auditoria; **[não verificado]** é p
 2. Rodar toda a suíte da seção 8 do `CLAUDE.md`, **incluindo** `node tests/combat.test.mjs` completo. Se falhar na parte de rigs, corrigir antes de qualquer outra coisa.
 3. `pnpm dev`, abrir `/game/index.html` no celular ou no emulador e jogar uma partida.
 
-## 1. Hospedagem própria (decisão pendente do dono)
+## 1. Hospedagem própria
 
-**Feito em 25/10/2026:** site próprio no **GitHub Pages** (`site/index.html` + `tools/build-pages.mjs` + `.github/workflows/pages.yml`). Página inicial com as cartas, como jogar, modos e download do APK, e o jogo em **modo site** (só treino; online e conta abrem o servidor atual). [verificado] build, caminhos relativos e treino em navegador servindo `_site/` em `/Retro-Royale/`, sem nenhuma chamada a `/api`. [não verificado] a publicação de verdade.
+**Site no GitHub Pages — feito e no ar.** [verificado] publicado pelo workflow "Site no GitHub Pages" e aberto pelo dono no celular em `https://guibombadoida-prog.github.io/Retro-Royale/`. Página inicial, treino contra a IA e download do APK.
 
-- [ ] **Passo do dono, uma vez só:** no GitHub, *Settings → Pages → Build and deployment → Source: GitHub Actions*. Depois rodar o workflow "Site no GitHub Pages" (ou fazer merge na `main`).
+**ChatGPT Sites — removido** (decisão do dono). Saíram `web/.openai/`, o plugin `web/build/sites-vite-plugin.*`, os `web/scripts/*` "managed-linux", `web/app/chatgpt-auth.ts`, `web/examples/` e todas as URLs `*.chatgpt.site`.
 
-O que continua pendente é o **servidor** (online, contas, progresso):
+**Servidor online na Cloudflare (Workers + D1, conta grátis do dono) — pronto no código, falta a conta.**
+[verificado] localmente no runtime da Cloudflare (`pnpm build && pnpm db:migrate:local && pnpm start`): sala 1v1 criada, segundo navegador entrou pelo código, os dois "prontos" e batalha sincronizada com WebRTC direto; `wrangler deploy --dry-run` passa (216 KiB gzip). [não verificado] o deploy real, que precisa da conta.
 
-Problema: o README e o APK apontam para `https://retro-royale-vfx.gabriel-divino1.chatgpt.site`, que está em outra conta. Se esse deploy sumir, o APK cai na tela offline e o jogo inteiro deixa de existir.
-
-O GitHub Pages **não serve** sozinho: ele só hospeda arquivos estáticos e o jogo precisa de backend (salas, contas, progresso). No GitHub Pages só o treino funcionaria.
-
-Plano recomendado **[não verificado]**: conta própria no Cloudflare (gratuita), projeto ligado ao GitHub, Worker + banco D1, porque o projeto já foi escrito para esse alvo.
-
-- Criar o banco D1 e aplicar as migrações de `web/drizzle/`.
-- Criar o `wrangler.jsonc` com o binding do D1 (investigar como o vinext/`@cloudflare/vite-plugin` gera o `dist/server/wrangler.json` que o script `start` já usa).
-- Cadastrar os segredos `RESEND_API_KEY` e `LOGIN_EMAIL_FROM` (login por e-mail).
-- Criar um workflow do GitHub Actions para build e deploy.
-- `web/.openai/hosting.json`, `web/build/sites-vite-plugin.ts` e os `scripts/*` de "managed-linux" são do fluxo do ChatGPT Sites. Descobrir o que pode sair e o que precisa ficar; não apagar antes de o deploy novo funcionar.
-- Depois de ter o domínio novo, trocar a URL em: `README.md`, `web/README.md`, `android/app/build.gradle` (`GAME_URL`), `ONLINE_URL` em `tools/build-pages.mjs` e conferir o rodapé de `public/game/index.html`.
-- Precisa de decisão e de contas do dono: domínio, conta Cloudflare, conta Resend.
+- [ ] **Passos do dono, uma vez só:**
+  1. Criar conta grátis em `dash.cloudflare.com` e abrir **Workers e Pages** uma vez para escolher o subdomínio `workers.dev`.
+  2. Copiar o **Account ID** (aparece na página Workers e Pages).
+  3. Criar um token em *My Profile → API Tokens → Create Token*, modelo **Edit Cloudflare Workers**, e adicionar a permissão **Account → D1 → Edit**.
+  4. No GitHub, *Settings → Secrets and variables → Actions*: segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
+  5. *Actions → Servidor na Cloudflare → Run workflow*. Depois disso o site ganha o botão "Batalhar online" e o APK é refeito apontando para o servidor, sozinhos.
+- [ ] Opcional: login por e-mail (segredos `RESEND_API_KEY` e `LOGIN_EMAIL_FROM`, ver `web/docs/EMAIL_LOGIN.md`).
+- [ ] Opcional: domínio próprio. Ligar o domínio ao Worker na Cloudflare e criar a variável do repositório `ONLINE_URL` com o endereço novo (com `/` no fim).
+- Limites do plano grátis da Cloudflare (conferir no painel): por volta de 100 mil pedidos por dia no Worker e limites diários de leitura/escrita no D1. Com WebRTC direto, uma partida 1v1 de 3 minutos usa algumas centenas de pedidos.
 
 ## 2. Link do APK
 
-**Feito em 25/10/2026 [não verificado no GitHub]:** o `build-android.yml`, na `main`, recria o pré-release `android-latest` com o APK. O botão do jogo e o da página inicial apontam para `https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk`. O workflow roda sozinho no merge (o próprio arquivo mudou); depois disso, conferir se o release apareceu e se o link baixa. A versão do ChatGPT Sites só ganha o link novo quando for republicada.
+**Feito [verificado]:** o `build-android.yml`, na `main`, recria o pré-release `android-latest`; o release apareceu com `retro-royale-android.apk` depois do merge. O botão do jogo e o da página inicial apontam para `https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk`. O app abre o servidor da Cloudflare quando ele está no ar, senão o jogo do GitHub Pages; o endereço fica nas notas do release.
 
 ## 3. Modelos e animações (rigs R6 do Roblox) — o trabalho principal
 
@@ -119,7 +116,7 @@ Hoje o baralho é fixo e a interface de troca está escondida. Para reativar:
 
 ## 6. Limpeza e melhorias menores
 
-- Raiz do repositório: dois arquivos `.mhtml` (páginas salvas, sem uso) e um `index.html` antigo que o app não serve. Confirmar com o dono e apagar.
+- Raiz do repositório: os dois `.mhtml` já foram apagados (pedido do dono). Falta decidir sobre o `index.html` antigo, que o app não serve.
 - Criar `.gitignore` na raiz e em `android/` (`build/`, `.gradle/`, `local.properties`, `*.apk`).
 - `.github/workflows/tripo-generate.yml` e `tools/tripo-generate.js` geram modelos em `assets/models/` que nada no jogo carrega, e precisam de `TRIPO_API_KEY`. Remover, ou integrar ao plano de modelos.
 - Adicionar o Gradle wrapper (`gradle wrapper`) ao `android/` para o build não depender da versão do CI.

@@ -1,0 +1,15 @@
+// Servidor do jogo na Cloudflare (Workers + banco D1), na conta do dono.
+// O deploy é pelo workflow .github/workflows/cloudflare.yml. Lá, tools/cloudflare.mjs cria o banco se precisar
+// e preenche o database_id só na máquina do CI; localmente o banco é o simulado do `wrangler dev`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "retro-royale",
+  "main": "vinext/server/fetch-handler",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "retro-royale", "migrations_dir": "drizzle" }
+  ]
+}

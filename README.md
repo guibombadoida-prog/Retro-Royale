@@ -2,7 +2,7 @@
 
 Website: https://guibombadoida-prog.github.io/Retro-Royale/ (training in the browser, cards, APK download)
 
-Online server: https://retro-royale-vfx.gabriel-divino1.chatgpt.site
+Online server: Cloudflare Workers on the owner's own free account (`https://retro-royale.<subdomain>.workers.dev/`), see [Online server](#online-server-cloudflare).
 
 The browser and Android app run the same 3D game and join the same room by its six-character code. Available online modes: **1v1, 2v1, 2v2 and 3v1**. Every participant has their own hand, card cycle and elixir. In asymmetric modes, the solo player's elixir regenerates 2× or 3× faster. All participants must occupy the room and press **Estou pronto** before the match starts.
 
@@ -30,19 +30,34 @@ node node_modules/typescript/bin/tsc --noEmit
 
 The Node tests cover actual API routes on SQLite with the generated migrations, all team capacities, readiness, server-side rejection of removed cards, command deduplication, combat ownership, independent elixir, coordinate mirroring, delayed attack damage and all 3D rigs. They do not replace visual browser QA or testing on a physical Android device.
 
-The Sites deployment uses the Vinext/Cloudflare integration and D1 migrations in `drizzle/`. Use the managed Sites build/publish workflow for this existing hosted site.
+Also `node tests/cloudflare.test.mjs` (deploy helper, mocked Cloudflare API).
+
+## Online server (Cloudflare)
+
+Online rooms, email accounts and cloud saves run on Cloudflare Workers + D1 in the owner's free account. `web/wrangler.jsonc` names the Worker `retro-royale` and binds the D1 database `retro-royale` as `DB`, with the Drizzle migrations in `web/drizzle/`. `.github/workflows/cloudflare.yml` runs the tests, builds and dry-runs the Worker on pull requests. On `main` it creates the database if needed (`node tools/cloudflare.mjs banco`), applies the migrations, deploys, checks `/api/health`, then rebuilds the website and, when the server address changed, the APK.
+
+One-time setup:
+
+1. Create a free Cloudflare account and open **Workers & Pages** once to choose the `workers.dev` subdomain.
+2. Create an API token from the **Edit Cloudflare Workers** template and add **Account → D1 → Edit**.
+3. In GitHub **Settings → Secrets and variables → Actions**, add the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+4. Run the **Servidor na Cloudflare** workflow (it also runs on every push to `main` that touches `web/`).
+
+Optional: the secrets `RESEND_API_KEY` and `LOGIN_EMAIL_FROM` enable email login (`docs/EMAIL_LOGIN.md`), and a repository variable `ONLINE_URL` replaces the workers.dev address with a custom domain.
+
+Local server on the Workers runtime, from `web/`: `pnpm build && pnpm db:migrate:local && pnpm start` (http://127.0.0.1:8787).
 
 ## Website (GitHub Pages)
 
 `site/index.html` is the home page. `node tools/build-pages.mjs` assembles `_site/` from it and from `web/public/` (the game), reads the card list straight from `engine.js`, switches `game/config.js` to static mode and fails on any missing or absolute (`/game/...`) path. `.github/workflows/pages.yml` runs that build on pull requests and publishes it from `main`.
 
-GitHub Pages only hosts static files, so the published game runs **training against the AI** with preferences kept in the browser. Online rooms, email accounts and cloud saves need the API: on the static site those controls are hidden and "Batalhar online" opens the server version (`ONLINE_URL` in `tools/build-pages.mjs`). Game paths are relative, so the same files work at `/game/` on the server and at `/Retro-Royale/game/` on Pages.
+GitHub Pages only hosts static files, so the published game runs **training against the AI** with preferences kept in the browser. Online rooms, email accounts and cloud saves need the API: on the static site those controls are hidden. The workflow asks `node tools/cloudflare.mjs endereco` for the Cloudflare server; while it answers, "Batalhar online" opens it, otherwise the site says online play is coming soon. Game paths are relative, so the same files work at `/game/` on the server and at `/Retro-Royale/game/` on Pages.
 
 One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
 
 ## Android
 
-The Android 8+ portrait APK is a small native WebView client that loads the published game over HTTPS. It requires internet access and the Android System WebView. The game is updated with the website, so its assets and server behavior are shared across web and Android. Build with JDK 17, Gradle 8.11.1 and Android SDK 35:
+The Android 8+ portrait APK is a small native WebView client that loads the published game over HTTPS: the Cloudflare server when it is up, otherwise the GitHub Pages training build (`RR_GAME_URL` in `android/app/build.gradle`). It requires internet access and the Android System WebView. The game is updated with the website, so its assets and server behavior are shared across web and Android. Build with JDK 17, Gradle 8.11.1 and Android SDK 35:
 
 ```sh
 cd android

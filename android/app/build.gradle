@@ -1,4 +1,7 @@
 plugins { id 'com.android.application' }
+// O workflow passa RR_GAME_URL com o servidor online (Cloudflare) quando ele está no ar.
+// Sem ele, o app abre o site do GitHub Pages, onde só o treino funciona.
+def gameUrl = System.getenv('RR_GAME_URL') ?: 'https://guibombadoida-prog.github.io/Retro-Royale/game/index.html?platform=android'
 android {
     namespace 'br.com.guibomba.retroroyale'
     compileSdk 35
@@ -6,9 +9,9 @@ android {
         applicationId 'br.com.guibomba.retroroyale'
         minSdk 26
         targetSdk 35
-        versionCode 5
-        versionName '1.5.0'
-        buildConfigField 'String', 'GAME_URL', '"https://retro-royale-vfx.gabriel-divino1.chatgpt.site/game/index.html?platform=android"'
+        versionCode 6
+        versionName '1.6.0'
+        buildConfigField 'String', 'GAME_URL', "\"${gameUrl}\""
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

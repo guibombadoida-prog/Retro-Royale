@@ -10,7 +10,7 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#10518d">
 <link rel="icon" href="favicon.svg">
-<!-- Página inicial do GitHub Pages. tools/build-pages.mjs troca os marcadores (CARTAS, {{...}}) e copia o jogo para game/. -->
+<!-- Página inicial do GitHub Pages. tools/build-pages.mjs preenche CARTAS e {{...}}, mantém COM-ONLINE ou SEM-ONLINE conforme o servidor e copia o jogo para game/. -->
 <style>
 @font-face{font-family:Royale;src:url('game/assets/fonts/royale.ttf') format('truetype');font-display:swap}
 :root{--azul:#10518d;--azul-escuro:#0a3a6a;--borda:#143553;--ally:#32bafa;--foe:#ff4087;--ouro:#ffd34f;--elixir:#ee4add;--texto:#fff;--suave:#d3e6fa;color-scheme:dark}
@@ -131,10 +131,10 @@ footer a{color:var(--ouro)}
     <p class="lead">Monte seu baralho, gaste o elixir na hora certa, atravesse a ponte e derrube as torres do rival. No navegador ou no celular.</p>
     <div class="actions">
      <a class="btn gold" href="game/index.html">Jogar treino agora</a>
-     <a class="btn" href="{{ONLINE_URL}}" target="_blank" rel="noopener">Batalhar online ↗</a>
+     <!-- COM-ONLINE --><a class="btn" href="{{ONLINE_URL}}" target="_blank" rel="noopener">Batalhar online ↗</a><!-- /COM-ONLINE -->
      <a class="btn ghost" href="https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk">Baixar APK Android</a>
     </div>
-    <p class="note">O treino contra a IA roda aqui mesmo, sem cadastro. Salas online, conta e progresso na nuvem ficam na versão do jogo com servidor.</p>
+    <p class="note">O treino contra a IA roda aqui mesmo, sem cadastro.<!-- COM-ONLINE --> Salas online, conta e progresso na nuvem ficam na versão do jogo com servidor.<!-- /COM-ONLINE --><!-- SEM-ONLINE --> As batalhas online estão chegando!<!-- /SEM-ONLINE --></p>
    </div>
    <div class="phone" id="preview">
     <div class="phoneHint"><p class="royale" style="font-size:22px;color:#fff1c6">Prévia ao vivo</p><p>O jogo abre aqui quando a tela for larga o bastante.</p></div>
@@ -184,7 +184,8 @@ footer a{color:var(--ouro)}
    <h2>Onde jogar</h2>
    <div class="where">
     <div class="panel"><h3>Aqui no site</h3><p>O jogo completo contra a IA, direto no navegador. Suas preferências ficam salvas neste aparelho.</p><a class="btn gold" href="game/index.html">Jogar treino</a></div>
-    <div class="panel"><h3>Versão online</h3><p>Salas 1v1, 2v1, 2v2 e 3v1, conta por e-mail e progresso salvo no servidor.</p><a class="btn" href="{{ONLINE_URL}}" target="_blank" rel="noopener">Batalhar online ↗</a></div>
+    <!-- COM-ONLINE --><div class="panel"><h3>Versão online</h3><p>Salas 1v1, 2v1, 2v2 e 3v1, conta por e-mail e progresso salvo no servidor.</p><a class="btn" href="{{ONLINE_URL}}" target="_blank" rel="noopener">Batalhar online ↗</a></div><!-- /COM-ONLINE -->
+    <!-- SEM-ONLINE --><div class="panel"><h3>Online em breve</h3><p>Salas 1v1, 2v1, 2v2 e 3v1, conta por e-mail e progresso salvo estão a caminho. Enquanto isso, treine contra a IA.</p></div><!-- /SEM-ONLINE -->
     <div class="panel"><h3>Android</h3><p>App para Android 8 ou mais novo, com o mesmo jogo e as mesmas salas do site.</p><a class="btn ghost" href="https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk">Baixar APK</a><small>APK de desenvolvimento para instalar direto no celular (não é da Play Store).</small></div>
    </div>
   </div>
