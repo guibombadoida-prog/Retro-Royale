@@ -1,6 +1,6 @@
 'use strict';
-// Onde o jogo está hospedado. Com servidor (Sites, Cloudflare, `pnpm dev`) o jogo usa a API em /api.
+// Onde o jogo está hospedado. Com servidor (Cloudflare, `pnpm dev`, `pnpm start`) o jogo usa a API em /api.
 // O build do GitHub Pages (tools/build-pages.mjs) publica este arquivo com estatico:true: sem API, só o treino
-// roda no próprio site e "Batalhar online" abre a versão com servidor indicada em `online`.
+// roda no próprio site e "Batalhar online" abre a versão com servidor indicada em `online` (vazio = servidor fora do ar).
 const RR_SITE={estatico:false,online:''};
-if(RR_SITE.estatico)document.documentElement.dataset.site='estatico';
+if(RR_SITE.estatico){document.documentElement.dataset.site='estatico';document.documentElement.dataset.online=RR_SITE.online?'sim':'nao';}

@@ -7,8 +7,10 @@ import vm from 'node:vm';
 
 const ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const OUT=join(ROOT,'_site');
-// Versão do jogo com servidor (online, conta e progresso). Troque aqui quando a hospedagem própria com API existir.
-const ONLINE_URL='https://retro-royale-vfx.gabriel-divino1.chatgpt.site/';
+// Endereço do servidor online (Cloudflare). O workflow descobre com `node tools/cloudflare.mjs endereco`;
+// vazio = servidor fora do ar, e o site mostra só o treino.
+const ONLINE_URL=(process.env.ONLINE_URL||'').trim();
+if(ONLINE_URL&&!/^https?:\/\/[^\s"'<>]+\/$/.test(ONLINE_URL))fail('ONLINE_URL precisa ser um endereço http(s) terminado em /: '+ONLINE_URL);
 const TIPOS={tropa:'Tropa',feitico:'Feitiço',construcao:'Construção'};
 
 function fail(message){console.error('build-pages: '+message);process.exit(1);}
@@ -68,6 +70,10 @@ const cards=readCards();
 const icons=new Set([...home.matchAll(/<symbol id="art-([\w-]+)"/g)].map(m=>m[1]));
 home=replaceOnce(home,'<!-- CARTAS -->',cards.map(c=>cardHtml(c,icons)).join('\n   '),'site/index.html');
 home=replaceOnce(home,'{{QUANTAS_CARTAS}}',String(cards.length),'site/index.html');
+// Trechos <!-- COM-ONLINE -->...<!-- /COM-ONLINE --> só aparecem com servidor; <!-- SEM-ONLINE --> só sem ele.
+for(const [tag,show] of [['COM-ONLINE',!!ONLINE_URL],['SEM-ONLINE',!ONLINE_URL]])
+ home=home.replace(new RegExp(`<!-- ${tag} -->([\\s\\S]*?)<!-- /${tag} -->`,'g'),(_,inner)=>show?inner:'');
+if(/<!-- \/?(?:COM|SEM)-ONLINE -->/.test(home))fail('site/index.html tem um marcador COM-ONLINE/SEM-ONLINE sem par');
 home=home.replaceAll('{{ONLINE_URL}}',escape(ONLINE_URL));
 if(/\{\{[A-Z_]+\}\}/.test(home))fail('site/index.html ainda tem um marcador {{...}} sem valor');
 writeFileSync(join(OUT,'index.html'),home);
@@ -75,4 +81,4 @@ writeFileSync(join(OUT,'index.html'),home);
 checkLinks(join(OUT,'index.html'));
 checkLinks(join(OUT,'game/index.html'));
 checkLinks(join(OUT,'game/arena.css'));
-console.log(`Site pronto em _site/ (${cards.length} cartas, online em ${ONLINE_URL}).`);
+console.log(`Site pronto em _site/ (${cards.length} cartas, ${ONLINE_URL?'online em '+ONLINE_URL:'sem servidor online: só treino'}).`);

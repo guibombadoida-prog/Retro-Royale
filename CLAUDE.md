@@ -23,8 +23,9 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
 ├── index.html                   protótipo antigo de arquivo único; NÃO é servido pelo app
 ├── site/index.html              página inicial do site no GitHub Pages
 ├── tools/build-pages.mjs        monta o site do GitHub Pages em _site/ (ignorado pelo git)
+├── tools/cloudflare.mjs         API da Cloudflare para os workflows: cria o banco D1 e descobre o endereço do servidor
 ├── tools/tripo-generate.js      gerador de modelos Tripo3D (não usado pelo jogo)
-├── .github/workflows/           pages.yml, build-android.yml, tripo-generate.yml
+├── .github/workflows/           cloudflare.yml (servidor), pages.yml (site), build-android.yml, tripo-generate.yml
 ├── android/                     app Android (WebView), Gradle
 └── web/                         tudo do site e do jogo
     ├── app/                     Next.js (vinext): page.tsx + rotas de API
@@ -32,6 +33,7 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
     ├── lib/                     player-profile.ts, email-account.ts
     ├── db/                      schema.ts (Drizzle) e index.ts
     ├── drizzle/                 migrações SQL geradas (0000..0002)
+    ├── wrangler.jsonc           Worker "retro-royale" + banco D1 "retro-royale" (binding DB) na Cloudflare
     ├── public/game/             O JOGO (cliente, scripts clássicos sem bundler)
     │   ├── index.html           toda a interface HTML do jogo
     │   ├── arena.css            todo o CSS
@@ -59,7 +61,7 @@ O jogo **não passa por bundler** exceto o 3D. `public/game/index.html` carrega 
 
 ### Modo site (GitHub Pages)
 
-`config.js` define `RR_SITE={estatico:false,online:''}`. O build do GitHub Pages publica uma cópia com `estatico:true`: não existe `/api`, então `connection.js` não monitora nada, `progress.js` guarda as preferências só no navegador (chave `retro-cloud-pending`) e nunca tenta salvar, `account.js` não chama a API, o CSS (`html[data-site=estatico]`) esconde login, transferência e modos online, e "Batalhar online" abre `RR_SITE.online` em outra aba. **Todo código novo que chama `/api` precisa respeitar `RR_SITE.estatico`.**
+`config.js` define `RR_SITE={estatico:false,online:''}`. O build do GitHub Pages publica uma cópia com `estatico:true`: não existe `/api`, então `connection.js` não monitora nada, `progress.js` guarda as preferências só no navegador (chave `retro-cloud-pending`) e nunca tenta salvar, `account.js` não chama a API, o CSS (`html[data-site=estatico]`) esconde login, transferência e modos online, e "Batalhar online" abre `RR_SITE.online` em outra aba. Se o servidor da Cloudflare estiver fora do ar no build, `online` fica vazio, `html[data-online=nao]` esconde o botão e o jogo avisa que o online está chegando. **Todo código novo que chama `/api` precisa respeitar `RR_SITE.estatico`.**
 
 ### engine.js (seções numeradas por comentário)
 
@@ -116,12 +118,12 @@ Visitante: token de 72 caracteres hex em `localStorage` (`retro-profile-token`),
 - Tabelas: `rooms`, `inputs`, `team_rooms`, `room_players`, `team_inputs`, `player_profiles`, `profile_battles`, `email_accounts`, `account_sessions`, `email_login_codes`.
 - Segredos (nunca no código): `RESEND_API_KEY`, `LOGIN_EMAIL_FROM`. Sem eles o login por e-mail aparece como "será liberado em breve".
 - Validação de cartas no servidor: `CARDS` em `app/api/room/route.ts` e `CARD_IDS` em `lib/player-profile.ts`. Os dois **precisam** ter exatamente os mesmos ids do `CARDS` do engine.
-- Hoje o deploy com servidor é pelo fluxo gerenciado do ChatGPT Sites (`web/.openai/hosting.json`, `web/build/sites-vite-plugin.ts`, `scripts/`). O site publicado está em uma conta que não é do dono (ver `TAREFAS.md`).
-- O site próprio do dono é o **GitHub Pages** (`https://guibombadoida-prog.github.io/Retro-Royale/`): `.github/workflows/pages.yml` roda `node tools/build-pages.mjs` em pull requests e publica a partir da `main`. Ele junta `site/index.html` (a lista de cartas vem do `CARDS` do engine.js) com uma cópia de `web/public/` e falha se algum caminho for absoluto ou não existir. Só o treino roda lá; o endereço do servidor online fica em `ONLINE_URL` no `tools/build-pages.mjs`.
+- **Servidor (online, contas, progresso): Cloudflare Workers + D1 na conta grátis do dono.** `web/wrangler.jsonc` define o Worker `retro-royale` e o banco `retro-royale` (binding `DB`, migrações em `drizzle/`). `.github/workflows/cloudflare.yml` roda testes, build e `wrangler deploy --dry-run` em pull requests; na `main`, com os segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, cria o banco se precisar (`node tools/cloudflare.mjs banco`, que grava o `database_id` só no CI), aplica as migrações, publica, confere `/api/health` e manda refazer o site e, se o endereço mudou, o APK. Endereço: `https://retro-royale.<subdomínio>.workers.dev/`; a variável do repositório `ONLINE_URL` troca por um domínio próprio. O ChatGPT Sites foi removido.
+- O site próprio do dono é o **GitHub Pages** (`https://guibombadoida-prog.github.io/Retro-Royale/`): `.github/workflows/pages.yml` roda `node tools/build-pages.mjs` em pull requests e publica a partir da `main`. Ele junta `site/index.html` (a lista de cartas vem do `CARDS` do engine.js) com uma cópia de `web/public/` e falha se algum caminho for absoluto ou não existir. Só o treino roda lá. O workflow pergunta o endereço do servidor com `node tools/cloudflare.mjs endereco` (só vale se `/api/health` responder) e passa em `ONLINE_URL` para o build; vazio = "online em breve". Na `site/index.html`, trechos entre `<!-- COM-ONLINE -->` e `<!-- SEM-ONLINE -->` dependem disso.
 
 ## 5. Android (android/)
 
-App nativo mínimo: um `WebView` que abre `GAME_URL` (definido em `android/app/build.gradle`, hoje apontando para o site do ChatGPT). Se a página ou a rede falhar, mostra tela offline com "tentar de novo". Links externos abrem no navegador. Pacote `br.com.guibomba.retroroyale`, minSdk 26, compileSdk 35, JDK 17, Gradle 8.11.1.
+App nativo mínimo: um `WebView` que abre `GAME_URL` (`android/app/build.gradle`). O workflow passa `RR_GAME_URL` com o servidor da Cloudflare quando ele está no ar; sem ele, o app abre o jogo no GitHub Pages (só treino). O endereço usado fica escrito nas notas do release `android-latest`. Se a página ou a rede falhar, mostra tela offline com "tentar de novo". Links externos abrem no navegador. Pacote `br.com.guibomba.retroroyale`, minSdk 26, compileSdk 35, JDK 17, Gradle 8.11.1.
 
 ```sh
 cd android && gradle assembleDebug
@@ -149,7 +151,9 @@ cd web
 pnpm install
 pnpm build:game        # 3D -> public/game/arena3d.bundle.js
 pnpm dev               # servidor de desenvolvimento (porta 5173)
-pnpm build             # build completo (já roda build:game antes)
+pnpm build             # build completo (já roda build:game antes) -> dist/ (Worker da Cloudflare)
+pnpm db:migrate:local  # aplica drizzle/ no banco D1 local
+pnpm start             # roda o Worker montado como na Cloudflare (http://127.0.0.1:8787), online funcionando
 ```
 
 Para testar só o cliente do jogo, sem API, qualquer servidor estático servindo `web/public/` abre `/game/index.html` e o **treino** funciona (o online e a conta precisam da API).
@@ -173,6 +177,7 @@ node tests/progress.test.mjs      # cliente de progresso
 node tests/email-client.test.mjs  # UI de e-mail contra a API real
 node tests/connection.test.mjs    # monitor de conexão
 node tests/combat.test.mjs        # simulação de combate + todos os rigs 3D (precisa de `three`)
+node tests/cloudflare.test.mjs    # tools/cloudflare.mjs com a API da Cloudflare simulada
 node node_modules/typescript/bin/tsc --noEmit
 ```
 

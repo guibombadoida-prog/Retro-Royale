@@ -57,3 +57,4 @@ dialog label{display:block;font-size:13px;margin:11px 0 4px}input,select{width:1
 .siteNote{display:none;font:11px/1.45 system-ui,sans-serif;color:#cee7f6;margin:-2px 0 10px}
 html[data-site=estatico] .siteNote{display:block}
 html[data-site=estatico] :is(.emailLoginForm,.profileTransfer,.modeChoices){display:none!important}
+html[data-online=nao] :is(#onlineBtn,.siteNote.comOnline),html[data-online=sim] .siteNote.semOnline{display:none!important}

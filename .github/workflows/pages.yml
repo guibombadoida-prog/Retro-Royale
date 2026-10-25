@@ -2,9 +2,9 @@ name: Site no GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'web/public/**', 'tools/build-pages.mjs', '.github/workflows/pages.yml']
+    paths: ['site/**', 'web/public/**', 'tools/build-pages.mjs', 'tools/cloudflare.mjs', '.github/workflows/pages.yml']
   pull_request:
-    paths: ['site/**', 'web/public/**', 'tools/build-pages.mjs', '.github/workflows/pages.yml']
+    paths: ['site/**', 'web/public/**', 'tools/build-pages.mjs', 'tools/cloudflare.mjs', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,7 +21,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # Com o servidor da Cloudflare no ar, o site ganha o botão "Batalhar online"; sem ele, mostra "online em breve".
+      - name: Descobrir o servidor online
+        id: servidor
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ONLINE_URL: ${{ vars.ONLINE_URL }}
+        run: node tools/cloudflare.mjs endereco >> "$GITHUB_OUTPUT"
       - name: Montar o site (página inicial + jogo em modo site)
+        env:
+          ONLINE_URL: ${{ steps.servidor.outputs.url }}
         run: node tools/build-pages.mjs
       - uses: actions/upload-pages-artifact@v3
         with:

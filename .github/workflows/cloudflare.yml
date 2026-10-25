@@ -1,0 +1,132 @@
+name: Servidor na Cloudflare
+# Publica o jogo completo (salas online, contas e progresso) na conta Cloudflare do dono: Worker "retro-royale"
+# com o banco D1 "retro-royale". Precisa dos segredos CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID (veja o README).
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'tools/cloudflare.mjs', '.github/workflows/cloudflare.yml']
+  pull_request:
+    paths: ['web/**', 'tools/cloudflare.mjs', '.github/workflows/cloudflare.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: retro-royale-cloudflare
+  cancel-in-progress: false
+jobs:
+  # Testes + build + simulação do deploy (sem conta). Roda também em pull requests.
+  conferir:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependências
+        working-directory: web
+        run: |
+          npm install -g "$(node -p "require('./package.json').packageManager")"
+          pnpm install --frozen-lockfile
+      - name: Testes
+        working-directory: web
+        run: |
+          for t in online account progress email-client connection combat cloudflare; do node tests/$t.test.mjs; done
+          node node_modules/typescript/bin/tsc --noEmit
+      - name: Montar o servidor e simular o deploy
+        working-directory: web
+        run: |
+          pnpm build
+          pnpm exec wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"
+  # Segredos não podem ser lidos num `if` de job, então este job só confere se eles existem.
+  segredos:
+    runs-on: ubuntu-24.04
+    outputs:
+      ok: ${{ steps.conferir.outputs.ok }}
+    steps:
+      - id: conferir
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Servidor não publicado::Faltam os segredos CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID. O passo a passo está no README."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+  deploy:
+    needs: [conferir, segredos]
+    if: needs.segredos.outputs.ok == 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependências
+        working-directory: web
+        run: |
+          npm install -g "$(node -p "require('./package.json').packageManager")"
+          pnpm install --frozen-lockfile
+      - name: Criar ou achar o banco D1
+        run: node tools/cloudflare.mjs banco
+      - name: Aplicar migrações do banco (web/drizzle)
+        working-directory: web
+        run: pnpm exec wrangler d1 migrations apply DB --remote
+      - name: Montar o servidor
+        working-directory: web
+        run: pnpm build
+      - name: Publicar o Worker
+        working-directory: web
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          LOGIN_EMAIL_FROM: ${{ secrets.LOGIN_EMAIL_FROM }}
+        run: |
+          # Login por e-mail é opcional: só envia os segredos do Resend se os dois existirem no GitHub.
+          extra=()
+          if [ -n "$RESEND_API_KEY" ] && [ -n "$LOGIN_EMAIL_FROM" ]; then
+            node -e 'require("fs").writeFileSync(process.argv[1],JSON.stringify({RESEND_API_KEY:process.env.RESEND_API_KEY,LOGIN_EMAIL_FROM:process.env.LOGIN_EMAIL_FROM}))' "$RUNNER_TEMP/segredos.json"
+            extra=(--secrets-file "$RUNNER_TEMP/segredos.json")
+          fi
+          pnpm exec wrangler deploy "${extra[@]}"
+          rm -f "$RUNNER_TEMP/segredos.json"
+      - name: Conferir se o servidor respondeu
+        id: servidor
+        env:
+          ONLINE_URL: ${{ vars.ONLINE_URL }}
+        run: |
+          for tentativa in 1 2 3 4 5 6; do
+            node tools/cloudflare.mjs endereco > "$RUNNER_TEMP/servidor"
+            grep -q '^url=.' "$RUNNER_TEMP/servidor" && break
+            sleep 10
+          done
+          cat "$RUNNER_TEMP/servidor" >> "$GITHUB_OUTPUT"
+          if ! grep -q '^url=.' "$RUNNER_TEMP/servidor"; then
+            echo "::error::O Worker foi publicado, mas /api/health não respondeu como o jogo."
+            exit 1
+          fi
+          echo "::notice title=Servidor no ar::$(sed -n 's/^url=//p' "$RUNNER_TEMP/servidor")"
+      # O site e o APK descobrem o servidor sozinhos; aqui só pedimos para eles serem montados de novo.
+      - name: Atualizar o site e o APK
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SERVIDOR: ${{ steps.servidor.outputs.url }}
+        run: |
+          gh workflow run pages.yml --ref main
+          # O APK só precisa ser refeito quando o endereço do servidor muda.
+          if ! gh release view android-latest --json body -q .body 2>/dev/null | grep -qF "$SERVIDOR"; then
+            gh workflow run build-android.yml --ref main
+          fi

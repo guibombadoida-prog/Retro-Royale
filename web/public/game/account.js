@@ -5,7 +5,7 @@ const ACCOUNT={
   const el=id=>document.getElementById(id),name=el('accountName');if(!name)return;
   const wait=Math.max(0,Math.ceil((this.cooldownUntil-Date.now())/1000)),expired=this.pending&&this.pending.expires<=Date.now();
   name.textContent=this.user?this.user.name:'Salve seu progresso';
-  el('accountStatus').textContent=this.user?this.user.email:this.ready?'Entre com um código recebido no seu e-mail.':typeof RR_SITE!=='undefined'&&RR_SITE.estatico?'A conta fica na versão online do jogo. Aqui você treina como visitante.':'O envio de códigos será liberado em breve. Você pode continuar como visitante.';
+  el('accountStatus').textContent=this.user?this.user.email:this.ready?'Entre com um código recebido no seu e-mail.':typeof RR_SITE!=='undefined'&&RR_SITE.estatico?(RR_SITE.online?'A conta fica na versão online do jogo.':'A conta chega junto com o online.')+' Aqui você treina como visitante.':'O envio de códigos será liberado em breve. Você pode continuar como visitante.';
   el('emailLoginForm').hidden=!!this.user||!!this.pending;el('codeLoginForm').hidden=!!this.user||!this.pending;el('logoutBtn').hidden=!this.user;
   el('loginEmail').disabled=!!this.busy;el('loginCode').disabled=!!this.busy;
   el('sendCodeBtn').disabled=!this.ready||!!this.busy||wait>0;
