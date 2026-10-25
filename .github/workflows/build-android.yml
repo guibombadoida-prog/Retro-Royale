@@ -5,7 +5,7 @@ on:
     paths: ['android/**', '.github/workflows/build-android.yml']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: retro-royale-android-${{ github.ref }}
   cancel-in-progress: true
@@ -50,3 +50,16 @@ jobs:
           path: artifacts/
           if-no-files-found: error
           retention-days: 90
+      # O botão "Baixar APK" do site e do jogo aponta para releases/download/android-latest/retro-royale-android.apk.
+      - name: Publicar APK no release android-latest
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest \
+            artifacts/retro-royale-android.apk artifacts/retro-royale-android.apk.sha256 \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Retro Royale Android (último build)" \
+            --notes "APK de desenvolvimento gerado automaticamente a partir de $GITHUB_SHA. Instalação direta no Android 8 ou mais novo; não é uma versão da Play Store."

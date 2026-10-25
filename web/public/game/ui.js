@@ -47,6 +47,7 @@ function togglePause(){
  const paused=G.state==='battle';G.state=paused?'paused':'battle';$('pauseOverlay').hidden=!paused;$('pauseBtn').textContent=paused?'▶':'Ⅱ';
 }
 function openOnline(){
+ if(typeof RR_SITE!=='undefined'&&RR_SITE.estatico){if(RR_SITE.online)window.open(RR_SITE.online,'_blank','noopener');else $('startHint').textContent='O modo online precisa do servidor do jogo.';return;}
  if(deckSel.length!==8){$('startHint').textContent='Escolha oito cartas para jogar online.';return;}
  $('roomEntry').hidden=!!NET.room;$('roomLobby').hidden=!NET.room;$('roomStatus').textContent='';
  if(!$('onlineDialog').open)$('onlineDialog').showModal();
@@ -80,7 +81,7 @@ function setupArena(){
  for(const b of document.querySelectorAll('button[data-mode]'))b.onclick=()=>chooseMode(b.dataset.mode);$('matchMode').onchange=()=>chooseMode($('matchMode').value);
  $('deckTab').onclick=()=>{$('deckDetails').open=false;$('deckTab').classList.add('on');$('collectionTab').classList.remove('on');};
  $('collectionTab').onclick=()=>{$('deckDetails').open=true;$('collectionTab').classList.add('on');$('deckTab').classList.remove('on');$('deckDetails').scrollIntoView({block:'nearest'});};
- $('onlineBtn').onclick=openOnline;
+ $('onlineBtn').onclick=openOnline;if(typeof RR_SITE!=='undefined'&&RR_SITE.estatico&&RR_SITE.online)$('onlineBtn').textContent='Batalhar online ↗';
  $('closeOnline').onclick=()=>{if(NET.room)NET.close();$('onlineDialog').close();};
  $('onlineDialog').addEventListener('cancel',()=>{if(NET.room)NET.close();});
  $('createRoom').onclick=()=>roomAction('create');$('joinRoom').onclick=()=>roomAction('join');
@@ -93,9 +94,9 @@ function setupArena(){
   try{await navigator.clipboard.writeText(url.href);$('roomStatus').textContent='Convite copiado. Compartilhe com os jogadores.';}catch(e){$('roomStatus').textContent='Compartilhe o código '+NET.room.code;}
  };
  $('deckDetails').addEventListener('toggle',()=>{if($('deckDetails').open)for(const el of $('pool').children)paintCard(el.querySelector('canvas'),CARD[el.dataset.id]);});
- // The opening screen shows the actual arena and the supplied champion artwork.
+ // The opening screen shows the actual arena with a few of the deck's units.
  startMatch(deckSel,diffSel);G.state='menu';$('toast').classList.remove('show');
- for(const [id,sd,x,y] of [['pretobranco','ally',6,18.5],['reibombado','ally',10,20],['cavaleiro','foe',4,9],['draco','foe',13,8.5]]){
+ for(const [id,sd,x,y] of [['gigante','ally',6,18.5],['arqueiras','ally',10,20],['cavaleiro','foe',4,9],['morcegos','foe',13,8.5]]){
   const u=spawnUnit(id,sd,x*TILE,y*TILE,{deploy:0});u.spawnT=0;
  }
  FX.clear();$('foeName').textContent='Guardião do Vale';$('phase').textContent='Preparação';

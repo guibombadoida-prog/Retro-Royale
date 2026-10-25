@@ -1,0 +1,43 @@
+name: Site no GitHub Pages
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'web/public/**', 'tools/build-pages.mjs', '.github/workflows/pages.yml']
+  pull_request:
+    paths: ['site/**', 'web/public/**', 'tools/build-pages.mjs', '.github/workflows/pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: retro-royale-pages-${{ github.ref }}
+  # Não interrompe uma publicação no meio; em pull requests pode cancelar o build antigo.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Montar o site (página inicial + jogo em modo site)
+        run: node tools/build-pages.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  # Só publica a partir da main. Em pull requests o build acima serve de verificação.
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

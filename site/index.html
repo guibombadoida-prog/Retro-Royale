@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Retro Royale — Ponte das Coroas</title>
+<meta name="description" content="Arena de cartas 3D em tempo real do AmizadeTale Studios. Jogue o treino no navegador, batalhe online ou baixe o app Android.">
+<meta property="og:title" content="Retro Royale — Ponte das Coroas">
+<meta property="og:description" content="Arena de cartas 3D em tempo real. Monte seu baralho, atravesse a ponte e derrube as torres do rival.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#10518d">
+<link rel="icon" href="favicon.svg">
+<!-- Página inicial do GitHub Pages. tools/build-pages.mjs troca os marcadores (CARTAS, {{...}}) e copia o jogo para game/. -->
+<style>
+@font-face{font-family:Royale;src:url('game/assets/fonts/royale.ttf') format('truetype');font-display:swap}
+:root{--azul:#10518d;--azul-escuro:#0a3a6a;--borda:#143553;--ally:#32bafa;--foe:#ff4087;--ouro:#ffd34f;--elixir:#ee4add;--texto:#fff;--suave:#d3e6fa;color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{min-height:100vh;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--texto);background-color:var(--azul);background-image:linear-gradient(45deg,#0d407855 25%,transparent 25%,transparent 75%,#0d407855 75%),linear-gradient(45deg,#0d407855 25%,transparent 25%,transparent 75%,#0d407855 75%);background-size:70px 70px;background-position:0 0,35px 35px;line-height:1.5}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ouro);outline-offset:3px}
+h1,h2,h3,.royale{font-family:Royale,'Arial Rounded MT Bold',system-ui,sans-serif;font-weight:400;letter-spacing:.01em;text-shadow:1px 3px #03274e}
+.wrap{width:min(1120px,100%);margin:0 auto;padding:0 16px}
+
+.top{position:sticky;top:0;z-index:10;background:#0a3a6aee;border-bottom:3px solid #21afff;backdrop-filter:blur(6px)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;font-family:Royale,system-ui,sans-serif;font-size:20px;line-height:.95;color:#fff1c6;text-shadow:1px 3px #03274e}
+.brand b{color:var(--ouro);font-weight:400}
+.brand img{width:36px;height:36px}
+.top nav{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.top nav a{text-decoration:none;font-size:14px;padding:8px 10px;border-radius:8px;color:var(--suave)}
+.top nav a:hover{background:#ffffff14;color:#fff}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;font-family:Royale,system-ui,sans-serif;font-size:19px;text-decoration:none;text-align:center;color:#fff;border:3px solid var(--borda);border-radius:10px;box-shadow:inset 0 2px #95defc,0 4px #092d54;background:linear-gradient(#65c4fd,#2194e5 70%,#1376c6);padding:9px 18px;text-shadow:1px 2px #184c7b;transition:transform .12s,filter .12s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn:active{transform:translateY(2px);box-shadow:inset 0 2px #95defc,0 1px #092d54}
+.btn.gold{background:linear-gradient(#ffe468,#ffc638 70%,#eaa126);border-color:#946021;box-shadow:inset 0 2px #fff4a3,0 4px #513917;text-shadow:1px 2px #8b601e}
+.btn.ghost{background:#416985;box-shadow:inset 0 1px #85b0ce,0 4px #092d54;font-size:17px}
+
+.hero .wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:center;padding-top:48px;padding-bottom:56px}
+.kicker{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ouro);background:#0a3a6acc;border:2px solid #498bbf;border-radius:999px;padding:4px 12px;margin-bottom:16px}
+.hero h1{font-size:clamp(44px,8vw,84px);line-height:.95;color:#fff1c6}
+.hero h1 span{display:block;color:var(--ouro);font-size:.55em;margin-top:8px}
+.lead{font-size:clamp(17px,2.2vw,20px);color:var(--suave);max-width:560px;margin:20px 0 26px}
+.actions{display:flex;flex-wrap:wrap;gap:12px}
+.note{font-size:13px;color:#cee7f6;max-width:560px;margin-top:18px}
+
+.phone{position:relative;width:340px;height:690px;border:10px solid #0b1b2c;border-radius:38px;background:#152b21;box-shadow:0 0 0 3px #498bbf,0 30px 80px #000a;overflow:hidden}
+.phone iframe{display:block;width:100%;height:100%;border:0}
+.phone .phoneHint{position:absolute;inset:0;display:grid;place-content:center;gap:12px;text-align:center;padding:24px;background:radial-gradient(circle at 50% 30%,#2b6fb1,#0a3a6a)}
+.phone .phoneHint p{font-size:14px;color:var(--suave)}
+
+section{padding:56px 0;scroll-margin-top:56px}
+section h2{font-size:clamp(30px,4.5vw,42px);color:#fff1c6;margin-bottom:8px}
+.sub{color:var(--suave);max-width:640px;margin-bottom:26px}
+.panel{background:#0a3a6ad9;border:2px solid #498bbf;border-radius:14px;padding:22px}
+
+.cards{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 16px;max-width:900px}
+.card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:16px 10px 14px;border:3px solid #1d3555;border-radius:12px;background:linear-gradient(#b7ddf5,#80abd5);box-shadow:inset 0 0 0 2px #dcf0fa,0 4px #082d5c;color:#0d2a47}
+.card .icon{width:76px;height:76px;margin:4px 0 6px;filter:drop-shadow(0 3px 0 #0d2a4740)}
+.card b{font-family:Royale,system-ui,sans-serif;font-weight:400;font-size:20px;color:#fff;text-shadow:0 2px #13304f,1px 0 #13304f,-1px 0 #13304f}
+.card small{font-size:13px;color:#16365a}
+.card .tags{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#1d4f80;margin-top:4px}
+.cost{position:absolute;top:-10px;left:-10px;width:36px;height:42px;display:grid;place-items:center;padding-top:4px;font-family:Royale,system-ui,sans-serif;font-size:20px;color:#fff;text-shadow:1px 2px #5c0b59;background:radial-gradient(ellipse at 35% 30%,#ff98fa,#e11acb 65%,#940e91);border:2px solid #4b0a49;border-radius:50% 50% 50% 50%/60% 60% 40% 40%}
+
+.steps{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;counter-reset:passo}
+.steps li{counter-increment:passo;position:relative;padding:20px 18px 18px 64px}
+.steps li::before{content:counter(passo);position:absolute;left:16px;top:18px;width:36px;height:36px;display:grid;place-items:center;font-family:Royale,system-ui,sans-serif;font-size:20px;color:#fff;background:linear-gradient(#ffe468,#eaa126);border:2px solid #946021;border-radius:50%;text-shadow:1px 2px #8b601e}
+.steps h3,.modes h3,.where h3{font-size:21px;color:#fff1c6;margin-bottom:4px}
+.steps p,.modes p,.where p{font-size:15px;color:var(--suave)}
+
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.modes .panel{border-top:6px solid var(--ally)}
+.modes .panel.solo{border-top-color:var(--foe)}
+.modes .panel.treino{border-top-color:var(--ouro)}
+.modes strong{display:block;font-family:Royale,system-ui,sans-serif;font-weight:400;font-size:32px;color:var(--ouro);line-height:1}
+
+.where{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.where .panel{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.where .panel p{flex:1}
+.where small{font-size:12px;color:#cee7f6}
+
+footer{border-top:3px solid #21afff;background:#0a3a6af2;padding:28px 0 36px;font-size:14px;color:var(--suave)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px}
+footer b{color:#fff1c6}
+footer a{color:var(--ouro)}
+
+@media (max-width:900px){
+ .hero .wrap{grid-template-columns:1fr;padding-top:32px}
+ .phone{display:none}
+}
+@media (max-width:700px){.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px}}
+@media (max-width:560px){
+ .top nav{display:none}
+ .actions .btn{flex:1 1 100%}
+ .modes .treino{grid-column:1/-1}
+ section{padding:40px 0}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <radialGradient id="fogo" cx="40%" cy="35%" r="65%"><stop offset="0" stop-color="#fff6b0"/><stop offset=".45" stop-color="#ffc638"/><stop offset="1" stop-color="#ff5a1a"/></radialGradient>
+ </defs>
+ <symbol id="art-knight" viewBox="0 0 64 64"><g transform="rotate(40 32 32)" stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"><path d="M32 2l6 9v29H26V11z" fill="#e6eef5"/><path d="M32 8v30" stroke="#a9bccd"/><rect x="17" y="40" width="30" height="7" rx="3.5" fill="#ffd34f"/><rect x="28.5" y="47" width="7" height="10" fill="#7a4b23"/><circle cx="32" cy="59" r="4" fill="#ffd34f"/></g></symbol>
+ <symbol id="art-archer" viewBox="0 0 64 64"><g transform="rotate(-35 32 32)" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6q34 26 0 52" fill="none" stroke="#13304f" stroke-width="9"/><path d="M22 6q34 26 0 52" fill="none" stroke="#a8693a" stroke-width="5"/><path d="M22 6v52" stroke="#f2e6c9" stroke-width="1.5"/><path d="M6 32h44" stroke="#13304f" stroke-width="6"/><path d="M6 32h44" stroke="#e6eef5" stroke-width="3"/><path d="M58 32l-10-6v12z" fill="#ffd34f" stroke="#13304f" stroke-width="2.5"/><path d="M12 32l-6-6M12 32l-6 6" stroke="#ff4087" stroke-width="3.5"/></g></symbol>
+ <symbol id="art-goblin" viewBox="0 0 64 64"><g stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"><path d="M19 30L2 18l13 24z" fill="#6cc04a"/><path d="M45 30l17-12-13 24z" fill="#6cc04a"/><ellipse cx="32" cy="37" rx="16" ry="15" fill="#7fd35a"/><circle cx="25.5" cy="34" r="4.5" fill="#fff"/><circle cx="38.5" cy="34" r="4.5" fill="#fff"/><circle cx="26.5" cy="35" r="1.8" fill="#13304f" stroke="none"/><circle cx="37.5" cy="35" r="1.8" fill="#13304f" stroke="none"/><path d="M24 44q8 6 16 0" fill="#fff"/><path d="M20 24q12-8 24 0l-2-6q-10-6-20 0z" fill="#ff4087"/></g></symbol>
+ <symbol id="art-giant" viewBox="0 0 64 64"><g stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"><circle cx="11" cy="30" r="5" fill="#f0b98a"/><circle cx="53" cy="30" r="5" fill="#f0b98a"/><circle cx="32" cy="29" r="20" fill="#f0b98a"/><path d="M12 32q2 26 20 28q18-2 20-28q-8 8-20 8t-20-8z" fill="#a8693a"/><path d="M20 22l9 3M44 22l-9 3" stroke-width="4" stroke-linecap="round"/><circle cx="25" cy="29" r="2.5" fill="#13304f" stroke="none"/><circle cx="39" cy="29" r="2.5" fill="#13304f" stroke="none"/><path d="M26 44q6-4 12 0" fill="none"/><path d="M14 18q18-16 36 0" fill="none" stroke="#a8693a" stroke-width="5"/></g></symbol>
+ <symbol id="art-fireball" viewBox="0 0 64 64"><path d="M30 34Q16 48 4 60q18-4 30-16" fill="#ff9a2a" stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"/><path d="M26 30Q14 38 8 46q12-2 22-10" fill="#ffc638"/><circle cx="40" cy="24" r="17" fill="url(#fogo)" stroke="#13304f" stroke-width="2.5"/><circle cx="35" cy="19" r="4" fill="#fffbe0"/></symbol>
+ <symbol id="art-zap" viewBox="0 0 64 64"><path d="M38 3L13 36h17l-6 25 27-35H34z" fill="none" stroke="#7fe0ff" stroke-width="8" stroke-linejoin="round" opacity=".7"/><path d="M38 3L13 36h17l-6 25 27-35H34z" fill="#ffe468" stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"/></symbol>
+ <symbol id="art-bomber" viewBox="0 0 64 64"><g stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"><path d="M44 10q6-8 13-5" fill="none" stroke="#c9a26b" stroke-width="3.5" stroke-linecap="round"/><path d="M57 2l2 4 4 1-4 2-1 4-2-4-4-1 4-2z" fill="#ffd34f"/><rect x="36" y="14" width="12" height="10" rx="2" transform="rotate(40 42 19)" fill="#5c6e86"/><circle cx="29" cy="38" r="20" fill="#37485e"/><circle cx="22" cy="31" r="5" fill="#6b7f99" stroke="none"/></g></symbol>
+ <symbol id="art-bat" viewBox="0 0 64 64"><g stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"><path d="M32 30C26 18 14 16 2 20c7 4 8 10 6 17 6-4 12-2 16 3 2-4 6-4 8-2 2-2 6-2 8 2 4-5 10-7 16-3-2-7-1-13 6-17-12-4-24-2-30 10z" fill="#7b4bb5"/><path d="M26 26l-1-8 5 5M38 26l1-8-5 5" fill="#5b3590"/><ellipse cx="32" cy="33" rx="7" ry="9" fill="#5b3590"/><circle cx="29" cy="31" r="1.8" fill="#ffd34f" stroke="none"/><circle cx="35" cy="31" r="1.8" fill="#ffd34f" stroke="none"/></g></symbol>
+ <symbol id="art-carta" viewBox="0 0 64 64"><path d="M8 48l4-30 11 12 9-18 9 18 11-12 4 30z" fill="#ffd34f" stroke="#13304f" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 54h44" stroke="#13304f" stroke-width="5" stroke-linecap="round"/></symbol>
+</svg>
+
+<header class="top">
+ <div class="wrap">
+  <a class="brand" href="./"><img src="favicon.svg" alt=""><span>RETRO<br><b>ROYALE</b></span></a>
+  <nav aria-label="Seções"><a href="#cartas">Cartas</a><a href="#como-jogar">Como jogar</a><a href="#modos">Modos</a><a href="#onde-jogar">Onde jogar</a></nav>
+ </div>
+</header>
+
+<main>
+ <section class="hero">
+  <div class="wrap">
+   <div>
+    <p class="kicker">Arena de cartas 3D · tempo real</p>
+    <h1>Retro Royale<span>Ponte das Coroas</span></h1>
+    <p class="lead">Monte seu baralho, gaste o elixir na hora certa, atravesse a ponte e derrube as torres do rival. No navegador ou no celular.</p>
+    <div class="actions">
+     <a class="btn gold" href="game/index.html">Jogar treino agora</a>
+     <a class="btn" href="{{ONLINE_URL}}" target="_blank" rel="noopener">Batalhar online ↗</a>
+     <a class="btn ghost" href="https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk">Baixar APK Android</a>
+    </div>
+    <p class="note">O treino contra a IA roda aqui mesmo, sem cadastro. Salas online, conta e progresso na nuvem ficam na versão do jogo com servidor.</p>
+   </div>
+   <div class="phone" id="preview">
+    <div class="phoneHint"><p class="royale" style="font-size:22px;color:#fff1c6">Prévia ao vivo</p><p>O jogo abre aqui quando a tela for larga o bastante.</p></div>
+   </div>
+  </div>
+ </section>
+
+ <section id="cartas">
+  <div class="wrap">
+   <h2>As {{QUANTAS_CARTAS}} cartas</h2>
+   <p class="sub">O baralho é fixo por enquanto: cada carta está ganhando modelo 3D, textura e animações novas, uma por vez.</p>
+   <ul class="cards">
+   <!-- CARTAS -->
+   </ul>
+  </div>
+ </section>
+
+ <section id="como-jogar">
+  <div class="wrap">
+   <h2>Como jogar</h2>
+   <p class="sub">Partidas de 3 minutos, em pé no celular. Arraste com o dedo ou use as teclas 1–4 no computador.</p>
+   <ol class="steps">
+    <li class="panel"><h3>Escolha a carta</h3><p>Você tem 4 cartas na mão, e a próxima já aparece na fila.</p></li>
+    <li class="panel"><h3>Solte no campo</h3><p>Arraste a carta para a sua metade da arena. Feitiços caem em qualquer lado.</p></li>
+    <li class="panel"><h3>Cuide do elixir</h3><p>Toda carta custa elixir, que recarrega sozinho até 10. No último minuto ele vem em dobro.</p></li>
+    <li class="panel"><h3>Derrube as torres</h3><p>Cada torre de princesa vale 1 coroa e a do rei vale 3. Empatou? Prorrogação de 1 minuto.</p></li>
+   </ol>
+  </div>
+ </section>
+
+ <section id="modos">
+  <div class="wrap">
+   <h2>Modos</h2>
+   <p class="sub">Navegador e Android entram na mesma sala pelo código de 6 letras. Cada jogador tem a própria mão e o próprio elixir.</p>
+   <div class="modes">
+    <div class="panel treino"><strong>Treino</strong><h3>Contra a IA</h3><p>Três níveis: Recruta, Veterano e Lenda.</p></div>
+    <div class="panel"><strong>1v1</strong><h3>Duelo</h3><p>Você contra outro jogador.</p></div>
+    <div class="panel solo"><strong>2v1</strong><h3>Dupla × solo</h3><p>O jogador solo recarrega elixir 2× mais rápido.</p></div>
+    <div class="panel"><strong>2v2</strong><h3>Duplas</h3><p>Combine cartas com o parceiro.</p></div>
+    <div class="panel solo"><strong>3v1</strong><h3>Trio × solo</h3><p>O jogador solo recarrega elixir 3× mais rápido.</p></div>
+   </div>
+  </div>
+ </section>
+
+ <section id="onde-jogar">
+  <div class="wrap">
+   <h2>Onde jogar</h2>
+   <div class="where">
+    <div class="panel"><h3>Aqui no site</h3><p>O jogo completo contra a IA, direto no navegador. Suas preferências ficam salvas neste aparelho.</p><a class="btn gold" href="game/index.html">Jogar treino</a></div>
+    <div class="panel"><h3>Versão online</h3><p>Salas 1v1, 2v1, 2v2 e 3v1, conta por e-mail e progresso salvo no servidor.</p><a class="btn" href="{{ONLINE_URL}}" target="_blank" rel="noopener">Batalhar online ↗</a></div>
+    <div class="panel"><h3>Android</h3><p>App para Android 8 ou mais novo, com o mesmo jogo e as mesmas salas do site.</p><a class="btn ghost" href="https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk">Baixar APK</a><small>APK de desenvolvimento para instalar direto no celular (não é da Play Store).</small></div>
+   </div>
+  </div>
+ </section>
+</main>
+
+<footer>
+ <div class="wrap">
+  <p><b>Retro Royale</b> é um jogo do <b>AmizadeTale Studios</b>, criado pelo Gui Bomba Doida.</p>
+  <p><a href="https://github.com/guibombadoida-prog/Retro-Royale" target="_blank" rel="noopener">Código no GitHub ↗</a> · Sons e partículas Kenney (CC0) · Fonte Lilita One (OFL)</p>
+ </div>
+</footer>
+
+<script>
+// A prévia ao vivo só carrega o jogo em telas largas, para não pesar no celular.
+(()=>{
+ const wide=matchMedia('(min-width: 901px)'),box=document.getElementById('preview');
+ const load=()=>{if(!wide.matches||box.querySelector('iframe'))return;const frame=document.createElement('iframe');frame.src='game/index.html';frame.title='Retro Royale rodando ao vivo';frame.allow='autoplay; fullscreen';box.replaceChildren(frame);};
+ wide.addEventListener('change',load);load();
+})();
+</script>
+</body>
+</html>

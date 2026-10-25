@@ -5,7 +5,7 @@ const ACCOUNT={
   const el=id=>document.getElementById(id),name=el('accountName');if(!name)return;
   const wait=Math.max(0,Math.ceil((this.cooldownUntil-Date.now())/1000)),expired=this.pending&&this.pending.expires<=Date.now();
   name.textContent=this.user?this.user.name:'Salve seu progresso';
-  el('accountStatus').textContent=this.user?this.user.email:this.ready?'Entre com um código recebido no seu e-mail.':'O envio de códigos será liberado em breve. Você pode continuar como visitante.';
+  el('accountStatus').textContent=this.user?this.user.email:this.ready?'Entre com um código recebido no seu e-mail.':typeof RR_SITE!=='undefined'&&RR_SITE.estatico?'A conta fica na versão online do jogo. Aqui você treina como visitante.':'O envio de códigos será liberado em breve. Você pode continuar como visitante.';
   el('emailLoginForm').hidden=!!this.user||!!this.pending;el('codeLoginForm').hidden=!!this.user||!this.pending;el('logoutBtn').hidden=!this.user;
   el('loginEmail').disabled=!!this.busy;el('loginCode').disabled=!!this.busy;
   el('sendCodeBtn').disabled=!this.ready||!!this.busy||wait>0;
@@ -22,6 +22,7 @@ const ACCOUNT={
  clearPending(){this.pending=null;this.persist();document.getElementById('loginCode').value='';this.paint();},
  setUser(user){this.user=user||null;if(this.user)this.clearPending();this.paint();},
  async init(){
+  if(typeof RR_SITE!=='undefined'&&RR_SITE.estatico){this.paint();return;}
   if(!this.restored){this.restored=true;try{const p=JSON.parse(sessionStorage.getItem('retro-email-login'));if(!this.user&&p&&/^[a-f0-9-]{72}$/.test(p.challenge)&&/^[a-f0-9-]{72}$/.test(p.profileToken)&&p.expires>Date.now()&&typeof p.email==='string'){this.pending=p;this.cooldownUntil=Number(p.resendAt)||0;}else sessionStorage.removeItem('retro-email-login');}catch(e){}}
   try{const r=await fetch('/api/account/config',{cache:'no-store',signal:AbortSignal.timeout(5000)}),d=await r.json();if(r.ok)this.ready=d.emailReady===true;}catch(e){}
   this.paint();

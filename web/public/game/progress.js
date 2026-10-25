@@ -1,12 +1,18 @@
 'use strict';
-const CHAMPION_IDS=['reibombado','pretobranco','boneca'];
+const CHAMPION_IDS=[],DECK_IDS=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
 const PROGRESS={
  token:null,battles:0,unlocked:[],loaded:false,revision:0,cloud:null,dirty:false,hydrating:false,saving:false,saveTimer:0,
  allowed(id){return !CHAMPION_IDS.includes(id)||this.unlocked.includes(id);},
- sanitize(deck){const normal=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'],out=[];let champion=false;for(const id of deck){if(!this.allowed(id)||CHAMPION_IDS.includes(id)&&champion)continue;if(CHAMPION_IDS.includes(id))champion=true;if(!out.includes(id))out.push(id);}for(const id of normal)if(out.length<8&&!out.includes(id))out.push(id);return out.slice(0,8);},
- apply(data){const was=this.unlocked.includes('reibombado');this.battles=Math.max(0,Number(data.battles)||0);this.unlocked=(data.unlocked||[]).filter(id=>CHAMPION_IDS.includes(id));const label=document.getElementById('championProgress');if(label)label.textContent=this.unlocked.length?'Rei Bombado liberado · 1 campeão por baralho':'Campeões bloqueados · jogue 1 batalha online';if(!was&&this.unlocked.includes('reibombado')){if(typeof toast==='function')toast('Rei Bombado desbloqueado!','#FFD44E');if(typeof buildPool==='function')buildPool();}},
+ sanitize(){return DECK_IDS.slice();},
+ apply(data){this.battles=Math.max(0,Number(data.battles)||0);this.unlocked=[];},
  init(){if(!this.loadingPromise)this.loadingPromise=this.load().finally(()=>{this.loadingPromise=null;});return this.loadingPromise;},
  async load(){
+  if(typeof RR_SITE!=='undefined'&&RR_SITE.estatico){
+   // GitHub Pages: sem servidor, as preferências ficam só neste navegador (mesma chave das alterações pendentes).
+   let pending;try{pending=JSON.parse(localStorage.getItem('retro-cloud-pending'));}catch(e){}
+   this.loaded=true;if(pending?.state?.deck?.length===8){this.cloud=pending.state;this.applyCloud();}
+   const label=document.getElementById('cloudStatus');if(label)label.textContent='Preferências salvas só neste aparelho';return;
+  }
   try{this.token=localStorage.getItem('retro-profile-token');}catch(e){}
   try{
    let r=await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:this.token}),signal:AbortSignal.timeout(6000)});
@@ -17,7 +23,7 @@ const PROGRESS={
    let pending;try{pending=JSON.parse(localStorage.getItem('retro-cloud-pending'));}catch(e){}
    if(pending?.owner===(d.account?.id||'guest:'+this.token)&&pending.revision===this.revision&&pending.state?.deck?.length===8){this.dirty=true;this.cloud={...d,...pending.state};this.applyCloud();this.saveTimer=setTimeout(()=>this.saveNow(),500);}
    else if(!this.dirty)this.applyCloud();
-  }catch(e){const label=document.getElementById('championProgress');if(label)label.textContent='Sem conexão com o progresso · tentaremos novamente';}
+  }catch(e){const label=document.getElementById('cloudStatus');if(label)label.textContent='Sem conexão com o progresso · tentaremos novamente';}
  },
  snapshot(){return {deck:deckSel.slice(),settings:{abilityPosition:document.body.dataset.abilityPosition||'right',difficulty:diffSel,sound:AU.on,fx:PREF.fx,light:PREF.light,nickname:document.getElementById('playerName')?.value||''}};},
  remember(){try{localStorage.setItem('retro-cloud-pending',JSON.stringify({owner:typeof ACCOUNT!=='undefined'&&ACCOUNT.user?ACCOUNT.user.id:'guest:'+this.token,revision:this.revision,state:this.snapshot()}));}catch(e){}},
@@ -35,7 +41,7 @@ const PROGRESS={
  changed(){if(this.hydrating||typeof deckSel==='undefined'||deckSel.length!==8)return;this.dirty=true;this.remember();const label=document.getElementById('cloudStatus');if(label&&typeof ACCOUNT!=='undefined'&&ACCOUNT.user)label.textContent='Alterações aguardando sincronização…';clearTimeout(this.saveTimer);this.saveTimer=setTimeout(()=>this.saveNow(),650);},
  saveNow(force=false){if(this.savePromise)return this.savePromise;this.savePromise=this.persistSave(force).finally(()=>{this.savePromise=null;});return this.savePromise;},
  async persistSave(force=false){
-  clearTimeout(this.saveTimer);if(!force&&typeof ACCOUNT!=='undefined'&&ACCOUNT.busy==='verify')return false;if(this.saving||!this.loaded||!this.dirty&&!force||deckSel.length!==8||typeof CONNECTION!=='undefined'&&!CONNECTION.available())return false;
+  clearTimeout(this.saveTimer);if(typeof RR_SITE!=='undefined'&&RR_SITE.estatico)return false;if(!force&&typeof ACCOUNT!=='undefined'&&ACCOUNT.busy==='verify')return false;if(this.saving||!this.loaded||!this.dirty&&!force||deckSel.length!==8||typeof CONNECTION!=='undefined'&&!CONNECTION.available())return false;
   const state=this.snapshot(),encoded=JSON.stringify(state);this.saving=true;
   try{
    const r=await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:this.token,save:true,revision:this.revision,...state}),signal:AbortSignal.timeout(6000)}),d=await r.json();

@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#126bb8"><title>Retro Royale — Arena 3D</title>
-<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/game/arena.css">
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="arena.css"><script src="config.js"></script>
 </head>
 <body data-ability-position="right">
-<div id="connectionBanner" role="status" aria-live="polite" hidden><img src="/favicon.svg" alt=""><span id="connectionMessage">Verificando conexão…</span><button id="retryConnection" type="button">Tentar agora</button></div>
+<div id="connectionBanner" role="status" aria-live="polite" hidden><img src="../favicon.svg" alt=""><span id="connectionMessage">Verificando conexão…</span><button id="retryConnection" type="button">Tentar agora</button></div>
 <div id="app" data-phase="normal">
  <main id="stage" aria-label="Arena 3D de batalha">
   <canvas id="world3d" aria-label="Arena 3D com seis torres e duas pontes"></canvas><canvas id="cv"></canvas>
   <header id="hud">
-   <div class="side foe"><img src="/favicon.svg" alt="" class="playerShield"><div><span class="tag" id="foeName">Treinador do Vale</span><small id="battleMode">Treino</small></div><div id="foePips" class="pips"></div></div>
+   <div class="side foe"><img src="../favicon.svg" alt="" class="playerShield"><div><span class="tag" id="foeName">Treinador do Vale</span><small id="battleMode">Treino</small></div><div id="foePips" class="pips"></div></div>
    <div id="clock"><small>Restante:</small><div id="time">3:00</div><div id="phase">tempo normal</div></div>
    <button id="pauseBtn" aria-label="Pausar partida">Ⅱ</button>
   </header>
@@ -33,10 +33,10 @@
 
 <div class="screen on" id="menu">
  <div class="wrap">
-  <nav id="brandbar"><a class="brand" href="/" target="_top"><img src="/favicon.svg" alt=""><span>RETRO<br><b>ROYALE</b></span></a><button id="settingsBtn" class="squareButton" aria-label="Configurações">⚙</button></nav>
+  <nav id="brandbar"><a class="brand" href="../" target="_top"><img src="../favicon.svg" alt=""><span>RETRO<br><b>ROYALE</b></span></a><button id="settingsBtn" class="squareButton" aria-label="Configurações">⚙</button></nav>
   <div class="menuHero"><canvas id="crest" width="92" height="92"></canvas><div><h1>Ponte das Coroas</h1><p>Monte seu baralho. Entre na arena.</p></div></div>
   <section class="accountCard" aria-label="Conta e progresso">
-   <img src="/favicon.svg" alt="" class="accountMark"><div><b id="accountName">Salve seu progresso</b><p id="accountStatus">Verificando opções de conta…</p></div>
+   <img src="../favicon.svg" alt="" class="accountMark"><div><b id="accountName">Salve seu progresso</b><p id="accountStatus">Verificando opções de conta…</p></div>
    <form id="emailLoginForm" class="emailLoginForm" novalidate>
     <label for="loginEmail">Seu Gmail ou e-mail</label><input id="loginEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" enterkeyhint="send" placeholder="seunome@gmail.com" required>
     <button id="sendCodeBtn" class="btn pri" type="submit" disabled>Enviar código</button>
@@ -46,18 +46,18 @@
     <small id="codeExpiry"></small><button id="verifyCodeBtn" class="btn gold" type="submit">Confirmar e entrar</button>
     <div class="loginActions"><button id="resendCodeBtn" class="chip" type="button">Reenviar código</button><button id="changeEmailBtn" class="chip" type="button">Trocar e-mail</button></div>
    </form>
-   <button id="logoutBtn" class="chip" type="button" hidden>Sair da conta</button><small id="cloudStatus" role="status" aria-live="polite">Jogando como visitante</small><a id="androidUpdate" target="_top" href="/downloads/retro-royale.apk">Baixar APK Android</a>
+   <button id="logoutBtn" class="chip" type="button" hidden>Sair da conta</button><small id="cloudStatus" role="status" aria-live="polite">Jogando como visitante</small><a id="androidUpdate" target="_top" href="https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk">Baixar APK Android</a>
   </section>
   <details class="profileTransfer"><summary>Transferir progresso de visitante</summary><p>Guarde seu código antes de trocar de aparelho ou reinstalar o APK. Ele recupera o perfil de visitante salvo no servidor.</p><button id="copyRecovery" class="chip" type="button">Copiar meu código</button><label for="recoveryCode">Código de recuperação</label><input id="recoveryCode" type="password" maxlength="72" autocomplete="off" spellcheck="false" placeholder="Cole o código do seu outro aparelho"><button id="restoreRecovery" class="chip" type="button">Restaurar perfil</button><small id="recoveryStatus" role="status"></small></details>
-  <div class="menuTabs"><button class="on" id="deckTab">Baralho</button><button id="collectionTab">Coleção</button></div>
-  <div class="deckBox"><div class="secttl"><h2>Seu baralho</h2><span id="deckCnt">8 / 8</span></div><div id="deckPreview" aria-label="Oito cartas do baralho"></div><div class="deckSummary"><span id="avgCost"></span><span>Máximo: 1 campeão</span></div></div>
-  <p id="championProgress" class="progressNotice">Campeões bloqueados · jogue 1 batalha online</p>
-  <details id="deckDetails"><summary>Alterar baralho <span>＋</span></summary><div class="row presets"><button class="chip" data-preset="ciclo">Ciclo</button><button class="chip" data-preset="pesado">Pesado</button><button class="chip" data-preset="enxame">Enxame</button><button class="chip" data-preset="cerco">Cerco</button><button class="chip" data-preset="campeoes">Campeão</button><button class="chip" data-preset="limpar">Limpar</button></div><div id="pool"></div></details>
+  <div class="menuTabs" style="display:none"><button class="on" id="deckTab">Baralho</button><button id="collectionTab">Coleção</button></div>
+  <div class="deckBox"><div class="secttl"><h2>Seu baralho</h2><span id="deckCnt">8 / 8</span></div><div id="deckPreview" aria-label="Oito cartas do baralho"></div><div class="deckSummary"><span id="avgCost"></span><span>8 cartas</span></div></div>
+    <details id="deckDetails" style="display:none"><summary>Alterar baralho <span>＋</span></summary><div id="pool"></div></details>
   <div class="secttl"><h2>Modo online</h2><span class="rule"></span></div>
+  <p class="siteNote">Neste site o treino roda aqui mesmo. As batalhas online e a conta abrem na versão do jogo com servidor.</p>
   <div class="modeChoices" aria-label="Modos de batalha"><button class="modeButton on" data-mode="1v1">1v1<small>Duelo</small></button><button class="modeButton" data-mode="2v1">2v1<small>Dupla × solo</small></button><button class="modeButton" data-mode="2v2">2v2<small>Duplas</small></button><button class="modeButton" data-mode="3v1">3v1<small>Trio × solo</small></button></div>
   <div class="go"><button class="btn gold" id="onlineBtn">Batalhar online</button><button class="btn pri" id="startBtn">Treino</button><span class="hint" id="startHint">Pronto para entrar</span></div>
   <div class="secttl"><h2>Nível do treino</h2></div><div class="row levels"><button class="chip" data-diff="0">Recruta</button><button class="chip on" data-diff="1">Veterano</button><button class="chip" data-diff="2">Lenda</button></div>
-  <details class="help"><summary>Como jogar <span>?</span></summary><p>Arraste uma carta para sua metade da arena ou selecione a carta e toque no campo. Feitiços atingem qualquer lado. Derrube as torres para ganhar coroas.</p><p>Você pode escolher apenas um campeão por baralho. Todos começam bloqueados; entrar em sua primeira batalha online libera o Rei Bombado para as próximas partidas. Treinos e salas que ainda não começaram não desbloqueiam campeões.</p><p>As habilidades do campeão são manuais: toque no botão circular, pague o elixir indicado e aguarde a recarga. Configure a posição dos botões na engrenagem.</p><p>No 2v1 e 3v1, o jogador solo recarrega elixir 2× ou 3× mais rápido. Cada jogador controla suas cartas; as torres pertencem à equipe.</p><p>Teclas 1–4 selecionam cartas, Esc cancela e Espaço pausa o treino.</p></details>
+  <details class="help"><summary>Como jogar <span>?</span></summary><p>Arraste uma carta para sua metade da arena ou selecione a carta e toque no campo. Feitiços atingem qualquer lado. Derrube as torres para ganhar coroas.</p><p>No 2v1 e 3v1, o jogador solo recarrega elixir 2× ou 3× mais rápido. Cada jogador controla suas cartas; as torres pertencem à equipe.</p><p>Teclas 1–4 selecionam cartas, Esc cancela e Espaço pausa o treino.</p></details>
   <footer class="credits">Arena e personagens 3D · sons e partículas Kenney CC0.<br><a href="https://github.com/guibombadoida-prog/Retro-Royale" target="_blank" rel="noopener">Repositório do jogo ↗</a></footer>
  </div>
 </div>
@@ -77,12 +77,9 @@
 
 <dialog id="settingsDialog" aria-labelledby="settingsTitle"><button class="closeDialog" id="closeSettings" aria-label="Fechar configurações">×</button><h2 id="settingsTitle">Configurações</h2>
  <div class="settingsTools"><button id="soundBtn" class="chip" aria-pressed="true">♪ Som</button><button id="fxBtn" class="chip" aria-pressed="true">✧ VFX</button><button id="lightBtn" class="chip" aria-pressed="false">Modo leve</button><button id="viewBtn" class="chip" aria-label="Mudar vista da câmera 3D">◈ Vista</button></div>
- <h3>Posição do botão da habilidade</h3><div class="positionPreview"><span class="previewTower">♜</span><span class="previewKing">♛</span><span class="previewTower">♜</span><span class="previewAbility left">✧</span><span class="previewAbility right">✧</span></div>
- <div class="positionChoices"><button class="btn pri" data-ability-position="left">Esquerda</button><button class="btn gold" data-ability-position="right">Direita</button><button class="btn pri" data-ability-position="both">Dos dois lados</button></div>
- <p class="roomNote">As duas posições ativam a mesma habilidade e compartilham a recarga.</p>
-</dialog>
+ </dialog>
 <output id="netBadge">TREINO</output>
 <div class="screen" id="result"><div class="wrap"><div id="rttl">Vitória</div><div id="rsub"></div><div id="rcrowns"><div class="rc a"><div class="rpips" id="rpAlly"></div><div class="n" id="rAlly">0</div><div class="l">Sua equipe</div></div><div class="vs">×</div><div class="rc f"><div class="rpips" id="rpFoe"></div><div class="n" id="rFoe">0</div><div class="l">Rival</div></div></div><dl id="rstats"></dl><div class="row"><button class="btn gold" id="againBtn">Revanche</button><button class="btn pri" id="backBtn">Baralho</button></div></div></div>
-<script src="/game/progress.js"></script><script src="/game/engine.js"></script><script src="/game/online.js"></script><script src="/game/sfx.js"></script><script src="/game/account.js"></script><script src="/game/connection.js"></script><script src="/game/arena3d.bundle.js"></script><script src="/game/ui.js"></script>
+<script src="progress.js"></script><script src="engine.js"></script><script src="online.js"></script><script src="sfx.js"></script><script src="account.js"></script><script src="connection.js"></script><script src="arena3d.bundle.js"></script><script src="ui.js"></script>
 </body></html>
 

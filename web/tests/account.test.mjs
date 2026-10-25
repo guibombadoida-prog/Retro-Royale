@@ -26,7 +26,7 @@ const unavailable=harness();eq((await unavailable.call('/api/account/config')).d
 eq((await h.call('/api/account/config')).data,{emailReady:true,provider:'email-code',digits:6});
 eq((await h.call('/api/account/authorize')).status,404);eq((await h.call('/api/account/login',{})).status,404);
 const first=await guest(),guestHash=await hash(first.token);eq(first.unlocked,[]);
-h.database.prepare("UPDATE player_profiles SET battles=1,unlocked='[\"reibombado\"]' WHERE token_hash=?").run(guestHash);h.database.prepare('INSERT INTO profile_battles VALUES (?,?)').run(guestHash,'ABC123');
+h.database.prepare("UPDATE player_profiles SET battles=1,unlocked='[]' WHERE token_hash=?").run(guestHash);h.database.prepare('INSERT INTO profile_battles VALUES (?,?)').run(guestHash,'ABC123');
 const saved=await h.call('/api/profile',{token:first.token,save:true,revision:0,deck:normal,settings:{abilityPosition:'left',nickname:'Player',extra:'ignored'}});eq(saved.status,200);eq(saved.data.settings,{abilityPosition:'left',nickname:'Player'});
 const flow=await begin(first,'  P.la.yer+arena@GoogleMail.com ');eq(flow.start.data.email,'player@gmail.com');eq(h.deliveries.at(-1).to,['player@gmail.com']);
 const stored=h.database.prepare('SELECT * FROM email_login_codes').get();eq(stored.code_hash,await hash(flow.start.data.challenge+'.'+flow.code));ok(!JSON.stringify(stored).includes(flow.start.data.challenge));eq(stored.attempts,0);
@@ -36,21 +36,21 @@ const wrong=flow.code==='000000'?'000001':'000000';eq((await finish(flow,wrong))
 eq((await h.call('/api/account/verify-code',{profileToken:(await guest()).token,challenge:flow.start.data.challenge,code:flow.code})).status,410);
 const session=await finish(flow);eq(session.status,200);eq(session.data.ok,true);ok(session.headers.get('set-cookie').includes('Secure'));ok(session.headers.get('set-cookie').includes('HttpOnly'));ok(session.headers.get('set-cookie').includes('SameSite=Lax'));const cookieA=cookieOf(session);
 eq((await finish(flow)).status,410);eq((await finish(flow)).headers.get('set-cookie'),null);
-let cloud=await h.call('/api/profile',{token:first.token},{cookie:cookieA});eq(cloud.data.unlocked,['reibombado']);eq(cloud.data.battles,1);eq(cloud.data.deck,normal);eq(cloud.data.account.email,'player@gmail.com');eq(cloud.data.account.name,'Player');ok(h.database.prepare('SELECT profile_hash FROM email_accounts').get().profile_hash!==guestHash);
+let cloud=await h.call('/api/profile',{token:first.token},{cookie:cookieA});eq(cloud.data.unlocked,[]);eq(cloud.data.battles,1);eq(cloud.data.deck,normal);eq(cloud.data.account.email,'player@gmail.com');eq(cloud.data.account.name,'Player');ok(h.database.prepare('SELECT profile_hash FROM email_accounts').get().profile_hash!==guestHash);
 // A second device proves ownership again and restores the same account.
 h.database.prepare('UPDATE email_login_codes SET created=created-61000').run();
 const second=await guest(),flow2=await begin(second),session2=await finish(flow2),cookieB=cookieOf(session2);eq(session2.status,200);
-const restored=await h.call('/api/profile',{token:second.token},{cookie:cookieB});eq(restored.data.account.id,cloud.data.account.id);eq(restored.data.unlocked,['reibombado']);eq(restored.data.battles,1);eq(restored.data.deck,normal);
-const revision=restored.data.revision,changed=['reibombado',...normal.slice(0,7)];
+const restored=await h.call('/api/profile',{token:second.token},{cookie:cookieB});eq(restored.data.account.id,cloud.data.account.id);eq(restored.data.unlocked,[]);eq(restored.data.battles,1);eq(restored.data.deck,normal);
+const revision=restored.data.revision,changed=[...normal].reverse();
 const save1=await h.call('/api/profile',{token:second.token,save:true,revision,deck:changed,settings:{abilityPosition:'both'}},{cookie:cookieB});eq(save1.status,200);
 const conflict=await h.call('/api/profile',{token:first.token,save:true,revision,deck:normal,settings:{}},{cookie:cookieA});eq(conflict.status,409);eq(conflict.data.deck,changed);
-eq((await h.call('/api/profile',{token:second.token,save:true,revision:save1.data.revision,deck:['pretobranco',...normal.slice(0,7)],settings:{}},{cookie:cookieB})).status,403);
-const forgedProgress=await h.call('/api/profile',{token:second.token,battles:999,unlocked:['pretobranco']},{cookie:cookieB});eq(forgedProgress.data.battles,1);eq(forgedProgress.data.unlocked,['reibombado']);
+eq((await h.call('/api/profile',{token:second.token,save:true,revision:save1.data.revision,deck:['pretobranco',...normal.slice(0,7)],settings:{}},{cookie:cookieB})).status,400);
+const forgedProgress=await h.call('/api/profile',{token:second.token,battles:999,unlocked:['pretobranco']},{cookie:cookieB});eq(forgedProgress.data.battles,1);eq(forgedProgress.data.unlocked,[]);
 const loggedRoom=await h.call('/api/room',{action:'create',mode:'1v1',profileToken:second.token,deck:changed},{cookie:cookieB});eq(loggedRoom.status,200);await h.call('/api/room',{action:'leave',code:loggedRoom.data.code,token:loggedRoom.data.token},{cookie:cookieB});
-eq((await h.call('/api/room',{action:'create',mode:'1v1',profileToken:second.token,deck:changed})).status,403);
+eq((await h.call('/api/room',{action:'create',mode:'1v1',profileToken:second.token,deck:['reibombado',...normal.slice(0,7)]})).status,400);
 for(const action of ['request-code','verify-code','logout'])eq((await h.call('/api/account/'+action,{},{cookie:cookieA,headers:{Origin:'https://evil.test'}})).status,403);
 eq((await h.call('/api/account/request-code',{profileToken:first.token,email:'other@gmail.com'},{cookie:cookieA})).status,409);
-eq((await h.call('/api/account/logout',{}, {cookie:cookieA})).status,200);eq((await h.call('/api/profile',{token:second.token},{cookie:cookieA})).data.account,null);eq((await h.call('/api/profile',{token:second.token},{cookie:cookieB})).data.unlocked,['reibombado']);
+eq((await h.call('/api/account/logout',{}, {cookie:cookieA})).status,200);eq((await h.call('/api/profile',{token:second.token},{cookie:cookieA})).data.account,null);eq((await h.call('/api/profile',{token:second.token},{cookie:cookieB})).data.unlocked,[]);
 h.database.prepare('UPDATE account_sessions SET expires=? WHERE token_hash=?').run(Date.now()-1000,await hash(cookieB.split('=')[1]));eq((await h.call('/api/profile',{token:second.token},{cookie:cookieB})).data.account,null);
 // Invalid addresses never reach the mail transport.
 const before=h.deliveries.length;

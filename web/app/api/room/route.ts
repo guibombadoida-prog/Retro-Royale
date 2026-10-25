@@ -1,7 +1,7 @@
 import { getRoomDb } from '@/db';
 import { profileFor } from '@/lib/player-profile';
 
-const CARDS = new Set(['cavaleiro','arqueiras','goblins','esqueletos','gigante','ariete','colosso','arcanista','bombardeiro','morcegos','draco','canhao','bobina','bolide','saraivada','estalo','vortice','reibombado','pretobranco','boneca']);
+const CARDS = new Set(['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos']);
 const ABILITIES = new Set(['bomba','imaginacao','nucleo','realizacao','esboco','rascunho','tracado','invocar']);
 const MODES: Record<string, readonly [number,number]> = {'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3v1':[3,1]};
 type Room = {code:string;mode:string;status:string;expires:number;snapshot:string|null;snapshot_seq:number};
@@ -19,11 +19,9 @@ const slotsFor = (mode:string) => [...Array(MODES[mode][0]).fill(0),...Array(MOD
 async function profileDeck(db:D1Database,request:Request,b:{profileToken?:string;deck:unknown}){
  if(typeof b.profileToken!=='string'||b.profileToken.length!==72)fail('Aguarde seu perfil carregar.');
  const {profileHash:digest}=await profileFor(request,db,b.profileToken);
- const profile=await db.prepare('SELECT unlocked FROM player_profiles WHERE token_hash=?').bind(digest).first<{unlocked:string}>();
+ const profile=await db.prepare('SELECT token_hash FROM player_profiles WHERE token_hash=?').bind(digest).first<{token_hash:string}>();
  if(!profile)fail('Seu perfil não foi encontrado.',403);
- const cards=JSON.parse(deck(b.deck)),champions=cards.filter((id:string)=>['reibombado','pretobranco','boneca'].includes(id));
- if(champions.length>1)fail('Escolha apenas um campeão por baralho.');
- if(champions.some((id:string)=>!JSON.parse(profile.unlocked).includes(id)))fail('Campeão bloqueado. Jogue uma batalha online para liberar o primeiro.',403);
+ const cards=JSON.parse(deck(b.deck));
  return {cards:JSON.stringify(cards),profileHash:digest};
 }
 
@@ -119,7 +117,7 @@ export async function POST(request:Request) {
   if(room.status==='waiting'&&current.status==='playing'&&allReady)for(const p of members)if(p.profile_hash){
    await db.batch([
     db.prepare('INSERT OR IGNORE INTO profile_battles (profile_hash,code) VALUES (?,?)').bind(p.profile_hash,b.code),
-    db.prepare('UPDATE player_profiles SET battles=(SELECT COUNT(*) FROM profile_battles WHERE profile_hash=?),unlocked=? WHERE token_hash=?').bind(p.profile_hash,'["reibombado"]',p.profile_hash),
+    db.prepare('UPDATE player_profiles SET battles=(SELECT COUNT(*) FROM profile_battles WHERE profile_hash=?),unlocked=? WHERE token_hash=?').bind(p.profile_hash,'[]',p.profile_hash),
    ]);
   }
   const progress=own.profile_hash?await db.prepare('SELECT battles,unlocked FROM player_profiles WHERE token_hash=?').bind(own.profile_hash).first<{battles:number;unlocked:string}>():null;
