@@ -17,17 +17,17 @@ const run=code=>vm.runInContext(code,ctx);
 for(const file of ['progress','engine','online'])run(readFileSync('public/game/'+file+'.js','utf8'));
 run("showDeckPreview=()=>{};const testNormal=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];");
 for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3v1':[3,1]})){
- const members=[...Array(sizes[0]).fill(0),...Array(sizes[1]).fill(1)].map((team,id)=>({team,id,name:'P'+id,deck:['reibombado','cavaleiro','arqueiras','goblins','gigante','bolide','estalo','morcegos']}));
+ const members=[...Array(sizes[0]).fill(0),...Array(sizes[1]).fill(1)].map((team,id)=>({team,id,name:'P'+id,deck:['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos']}));
  run(`NET.active=true;NET.role='host';NET.playerId=0;NET.team=0;NET.mode='${mode}';startMatch(testNormal,1);TEAMS.init(${JSON.stringify(members)},'${mode}');`);
  const before=run('G.players.map(p=>p.elixir)');run('TEAMS.tick(1,1)');const rates=run('G.players.map(p=>p.elixir-5)');assert.ok(Math.abs(rates.at(-1)/rates[0]-sizes[0]/sizes[1])<1e-9);
  // Every participant plays independently on their own team.
  for(const m of members){
-  run(`G.players[${m.id}].hand=['reibombado','cavaleiro','arqueiras','goblins'];G.players[${m.id}].elixir=10;TEAMS.sync();`);
-  assert.equal(run(`TEAMS.play(${m.id},0,224,${m.team===0?1400:200},'reibombado')`),true);
-  const champ=run(`G.units.find(u=>u.playerId===${m.id}&&u.card.id==='reibombado')`);assert.ok(champ);
-  run(`G.players[${m.id}].hand[0]='reibombado';G.players[${m.id}].elixir=10;TEAMS.sync();`);
-  assert.equal(run(`TEAMS.play(${m.id},0,224,${m.team===0?1400:200},'reibombado')`),false);
-  const wrong=(m.id+1)%members.length;assert.equal(run(`TEAMS.ability(${wrong},${champ.id},'bomba')`),false);
+  run(`G.players[${m.id}].hand=['cavaleiro','arqueiras','goblins','gigante'];G.players[${m.id}].elixir=10;TEAMS.sync();`);
+  assert.equal(run(`TEAMS.play(${m.id},0,224,${m.team===0?1400:200},'cavaleiro')`),true);
+  assert.ok(run(`G.units.find(u=>u.playerId===${m.id}&&u.card.id==='cavaleiro')`));
+  // Sem elixir a jogada é recusada.
+  run(`G.players[${m.id}].hand[0]='gigante';G.players[${m.id}].elixir=0;TEAMS.sync();`);
+  assert.equal(run(`TEAMS.play(${m.id},0,224,${m.team===0?1400:200},'gigante')`),false);
  }
  const guestId=members.length-1,guestTeam=members[guestId].team;
  run(`NET.acks={};NET.results={};NET.inboxes.clear();G.players[${guestId}].hand=['cavaleiro','goblins','arqueiras','gigante'];G.players[${guestId}].elixir=10;TEAMS.sync();`);
@@ -48,23 +48,14 @@ for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3
 run("NET.active=false;NET.role=null;startMatch(testNormal,1);const attacker=spawnUnit('cavaleiro','ally',576,800,{deploy:0});const target=spawnUnit('cavaleiro','foe',576,750,{deploy:0});attacker.spawnT=target.spawnT=0;attacker.atkT=0;attacker.target=target;attacker.retarget=1;const initialHP=target.hp;stepUnit(attacker,1/60);");
 assert.equal(run('target.hp'),run('initialHP'));assert.ok(run('attacker.attackWindup')>0);
 run('for(let i=0;i<20;i++)stepUnit(attacker,1/60)');assert.ok(run('target.hp')<run('initialHP'));
-for(const art of ['knight','archer','goblin','skeleton','giant','colossus','mage','bomber','bat','drake','ram','cannon','coil','bombking','bwchamp','dollaltar','hologram']){
+for(const art of ['knight','archer','goblin','giant','bomber','bat']){
  const model=unitModel(art,'ally'),rig={};for(const key of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing'])rig[key]=model.getObjectByName(key);
  const n={model,rig,oldX:0,oldY:0,angle:0},e={id:1,x:1,y:1,heading:.3,ph:2,moving:true,card:{art,deploy:1,proj:art==='archer'},attackWindup:.1,attackPrep:.18,atk:.5,hurt:.7,deploy:0};
  for(let i=0;i<30;i++)animateRig(n,e,i/60,1/60);for(const v of [...model.position,...model.rotation.toArray().slice(0,3),...model.scale])assert.ok(Number.isFinite(v));
  for(let i=0;i<30;i++)animateDeath(n,1/60);assert.ok(n.deathTime>.42);assert.ok(model.rotation.z>1);
 }
 for(const side of ['ally','foe'])for(const king of [true,false]){const model=towerModel(side,king);assert.ok(model.getObjectByName('turret'));}
-console.log('Combat: independent players, one champion, ability ownership, team mirroring, snapshot serialization, delayed attack impact and all 3D rigs passed.');
-// The two touch buttons operate the same champion and never expose a teammate's ability.
-run(readFileSync('public/game/ui.js','utf8').split('const originalSyncHUD')[0]);
-run("NET.active=true;NET.role='host';NET.playerId=0;NET.team=0;startMatch(testNormal,1);TEAMS.init([{id:0,team:0,name:'Own',deck:testNormal},{id:1,team:0,name:'Mate',deck:testNormal},{id:2,team:1,name:'Enemy',deck:testNormal}],'2v1');G.players[0].elixir=10;TEAMS.sync();const owned=spawnUnit('reibombado','ally',576,900,{deploy:0,playerId:0});owned.spawnT=0;const teammate=spawnUnit('reibombado','ally',620,900,{deploy:0,playerId:1});teammate.spawnT=0;const enemy=spawnUnit('cavaleiro','foe',576,840,{deploy:0,playerId:2});enemy.spawnT=0;owned.target=enemy;document.body.dataset.abilityPosition='both';syncChampionButtons();");
-assert.equal(run("$('championButtons').children.length"),2);
-assert.equal(run("$('championButtons').children[0].dataset.controlSide"),'left');assert.equal(run("$('championButtons').children[1].dataset.controlSide"),'right');
-assert.equal(run('CHAMP_UI.buttons.length'),2);assert.equal(run('CHAMP_UI.buttons.every(v=>v.unitId===owned.id)'),true);
-assert.equal(run('G.fields.length'),0);run('CHAMP_UI.buttons[0].button.onclick()');assert.equal(run('G.fields.length'),1);assert.equal(run('G.players[0].elixir'),8);
-run('CHAMP_UI.buttons[1].button.onclick()');assert.equal(run('G.fields.length'),1);assert.equal(run('G.players[0].elixir'),8);
-console.log('Champion touch UI: left/right copies share ownership, manual activation, elixir cost and cooldown.');
+console.log('Combat: independent players, elixir rules, team mirroring, snapshot serialization, delayed attack impact and all 3D rigs passed.');
 // A disconnected host preserves combat time and player balances until the link returns.
 run("globalThis.CONNECTION={available:()=>false,paint(){}};NET.active=true;NET.role='host';NET.peerPaused=false;NET.remotePaused=false;G.state='battle';");
 const pausedTime=run('G.timeLeft'),pausedElixir=run('G.players[0].elixir'),pausedUnits=run('G.units.length');

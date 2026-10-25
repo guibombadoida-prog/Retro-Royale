@@ -6,9 +6,9 @@ The browser and Android app run the same 3D game and join the same room by its s
 
 Characters use genuine 3D meshes with walk, idle, attack preparation, strike, damage and death poses. WebGL renders the scene; a software triangle renderer preserves the 3D geometry when WebGL is unavailable. The portrait HUD follows the supplied mobile layout: blue card panel, four-card hand, next card, segmented elixir, enemy name, timer and round champion abilities. Original character art is retained. Licensed sound clips and particle textures are credited in `public/game/assets/README.md`.
 
-## Champions
+## Cards
 
-All three champions start locked. Starting the first fully ready online battle unlocks **Rei Bombado** for subsequent decks; training and joining an unstarted lobby do not count. The server persists progress and validates every online deck. Each deck and each player's field allow at most **one champion**. The other champions stay locked until additional unlock rules are specified. Abilities require tapping their button, spend that player's elixir and have cooldowns. Choose left, right or both sides in Settings.
+The game currently ships with exactly **8 cards**, a fixed deck: Cavaleiro, Arqueiras, Goblins, Gigante, Bólide, Estalo, Bombardeiro and Morcegos. The champions and every other card were removed so each card can be remade (art, 3D model and animation) one by one. The server only accepts these eight ids when creating or joining a room and when saving a deck; there is nothing to unlock.
 
 Visitor progress is tied to the installation/browser profile and can be transferred with its recovery code. Verify an email address to save and recover the same progression, deck and preferences on the website and Android.
 
@@ -26,7 +26,7 @@ node tests/combat.test.mjs
 node node_modules/typescript/bin/tsc --noEmit
 ```
 
-The Node tests cover actual API routes on SQLite with the generated migrations, all team capacities, readiness, server-side champion locks, command deduplication, combat ownership, independent elixir, coordinate mirroring, delayed attack damage and all 3D rigs. They do not replace visual browser QA or testing on a physical Android device.
+The Node tests cover actual API routes on SQLite with the generated migrations, all team capacities, readiness, server-side rejection of removed cards, command deduplication, combat ownership, independent elixir, coordinate mirroring, delayed attack damage and all 3D rigs. They do not replace visual browser QA or testing on a physical Android device.
 
 The Sites deployment uses the Vinext/Cloudflare integration and D1 migrations in `drizzle/`. Use the managed Sites build/publish workflow for this existing hosted site.
 

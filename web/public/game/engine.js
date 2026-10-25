@@ -82,93 +82,25 @@ const CARDS = [
   { id:'goblins', nome:'Goblins', custo:2, tipo:'tropa', papel:'enxame veloz', art:'goblin',
     n:3, hp:190, dmg:105, hit:1.05, range:.85, speed:1.25, sight:5, alvo:'chao',
     raio:.28, massa:.7, deploy:1.0 },
-  { id:'esqueletos', nome:'Esqueletos', custo:1, tipo:'tropa', papel:'bloqueio barato', art:'skeleton',
-    n:4, hp:85, dmg:75, hit:1.0, range:.8, speed:1.15, sight:5, alvo:'chao',
-    raio:.26, massa:.5, deploy:1.0 },
   { id:'gigante', nome:'Gigante', custo:5, tipo:'tropa', papel:'só construções', art:'giant',
     hp:3100, dmg:220, hit:1.5, range:1.1, speed:.55, sight:6, alvo:'construcoes',
     raio:.58, massa:3.0, deploy:1.0 },
-  { id:'ariete', nome:'Aríete', custo:4, tipo:'tropa', papel:'investida na torre', art:'ram',
-    hp:1500, dmg:260, hit:1.6, range:1.0, speed:1.40, sight:6, alvo:'construcoes',
-    raio:.44, massa:1.6, deploy:1.0, pula:true },
-  { id:'colosso', nome:'Colosso', custo:7, tipo:'tropa', papel:'martelo lento', art:'colossus',
-    hp:3500, dmg:720, hit:1.8, range:1.15, speed:.55, sight:5.5, alvo:'chao',
-    raio:.6, massa:3.4, deploy:1.0 },
-  { id:'arcanista', nome:'Arcanista', custo:5, tipo:'tropa', papel:'área à distância', art:'mage',
-    hp:620, dmg:250, hit:1.4, range:5.5, speed:.7, sight:5.8, alvo:'ambos',
-    raio:.32, massa:.9, deploy:1.0, splash:1.5, proj:'orb' },
+  { id:'bolide', nome:'Bólide', custo:4, tipo:'feitico', papel:'estouro pesado', art:'fireball',
+    feitico:{ kind:'bolide', raio:2.4, dmg:620, empurra:2.6, atraso:.55 } },
+  { id:'estalo', nome:'Estalo', custo:2, tipo:'feitico', papel:'atordoa', art:'zap',
+    feitico:{ kind:'estalo', raio:2.2, dmg:150, atordoa:.75, atraso:.1 } },
   { id:'bombardeiro', nome:'Bombardeiro', custo:3, tipo:'tropa', papel:'limpa enxame', art:'bomber',
     hp:300, dmg:210, hit:1.9, range:4.5, speed:.75, sight:5, alvo:'chao',
     raio:.3, massa:.7, deploy:1.0, splash:1.5, proj:'bomb' },
   { id:'morcegos', nome:'Morcegos', custo:2, tipo:'tropa', papel:'enxame aéreo', art:'bat',
     n:4, hp:75, dmg:55, hit:.95, range:.85, speed:1.40, sight:5.5, alvo:'ambos',
     raio:.24, massa:.4, deploy:1.0, ar:true },
-  { id:'draco', nome:'Draco', custo:4, tipo:'tropa', papel:'área voadora', art:'drake',
-    hp:980, dmg:185, hit:1.6, range:3.2, speed:.85, sight:5.5, alvo:'ambos',
-    raio:.42, massa:1.2, deploy:1.0, ar:true, splash:1.25, proj:'fire' },
-  { id:'canhao', nome:'Canhão', custo:3, tipo:'construcao', papel:'defesa terrestre', art:'cannon',
-    hp:720, dmg:125, hit:.9, range:5.5, alvo:'chao', raio:.45, vida:32, deploy:1.0, proj:'ball' },
-  { id:'bobina', nome:'Bobina', custo:4, tipo:'construcao', papel:'defesa ar e chão', art:'coil',
-    hp:820, dmg:135, hit:1.1, range:5.0, alvo:'ambos', raio:.42, vida:36, deploy:1.0, zap:true },
-  { id:'bolide', nome:'Bólide', custo:4, tipo:'feitico', papel:'estouro pesado', art:'fireball',
-    feitico:{ kind:'bolide', raio:2.4, dmg:620, empurra:2.6, atraso:.55 } },
-  { id:'saraivada', nome:'Saraivada', custo:3, tipo:'feitico', papel:'varre enxame', art:'arrows',
-    feitico:{ kind:'saraivada', raio:3.9, dmg:230, atraso:.75 } },
-  { id:'estalo', nome:'Estalo', custo:2, tipo:'feitico', papel:'atordoa', art:'zap',
-    feitico:{ kind:'estalo', raio:2.2, dmg:150, atordoa:.75, atraso:.1 } },
-  { id:'vortice', nome:'Vórtice', custo:3, tipo:'feitico', papel:'puxa e junta', art:'tornado',
-    feitico:{ kind:'vortice', raio:4.0, dmg:110, puxa:2.6, dura:1.6, atraso:.15 } },
-
-  /* ── Campeões: habilidades ativadas pelo jogador ── */
-  { id:'reibombado', nome:'Rei Bombado', custo:8, tipo:'campeao', papel:'gangue explosiva', art:'bombking',
-    hp:2600, dmg:190, hit:1.4, range:1.1, speed:.6, sight:5.5, alvo:'chao', splash:1.3,
-    raio:.56, massa:3.0, deploy:1.5, proj:'bomb', unico:true, campeao:true,
-    esquadra:[['pingo',1],['sirene',2],['ogiva',3],['coveiro',4]] },
-  { id:'pretobranco', nome:'Preto & Branco', custo:7, tipo:'campeao', papel:'campeão supremo', art:'bwchamp',
-    hp:1500, dmg:230, hit:1.1, range:2.6, speed:.95, sight:6.5, alvo:'ambos',
-    raio:.36, massa:1.2, deploy:1.6, unico:true, campeao:true, bw:true },
-  { id:'boneca', nome:'Boneca Holograma', custo:6, tipo:'campeao', papel:'invoca o holograma', art:'dollaltar',
-    hp:950, alvo:'chao', raio:.46, vida:42, deploy:1.4, unico:true, campeao:true,
-    estatica:true, invoca:'holograma' },
-
-  /* ── Unidades que só nascem de campeão (fora do baralho) ── */
-  { id:'pingo', nome:'Pingo', oculta:true, tipo:'tropa', art:'bpingo',
-    hp:220, dmg:95, hit:2.0, range:4.2, speed:.8, sight:5, alvo:'chao', splash:1.1,
-    raio:.28, massa:.7, deploy:.5, proj:'bomb', hab:'pingo', hcd:7 },
-  { id:'sirene', nome:'Sirene', oculta:true, tipo:'tropa', art:'bsirene',
-    hp:195, dmg:85, hit:2.1, range:4.2, speed:.8, sight:5, alvo:'chao', splash:1.0,
-    raio:.28, massa:.7, deploy:.5, proj:'bomb', hab:'aereo', hcd:9.5 },
-  { id:'ogiva', nome:'Ogiva', oculta:true, tipo:'tropa', art:'bogiva',
-    hp:175, dmg:80, hit:2.2, range:4.0, speed:.75, sight:5.5, alvo:'chao', splash:1.0,
-    raio:.28, massa:.7, deploy:.5, proj:'bomb', hab:'nuke', hcd:13 },
-  { id:'coveiro', nome:'Coveiro', oculta:true, tipo:'tropa', art:'bcoveiro',
-    hp:205, dmg:80, hit:2.0, range:3.8, speed:.85, sight:5, alvo:'chao', splash:.9,
-    raio:.28, massa:.7, deploy:.5, proj:'bomb', hab:'kamikaze', hcd:8 },
-  { id:'kamikaze', nome:'Kamikaze', oculta:true, tipo:'tropa', art:'kamikaze',
-    hp:65, dmg:0, hit:9, range:.7, speed:1.55, sight:6, alvo:'chao', vida:12,
-    raio:.22, massa:.4, deploy:.35, estoura:{ dmg:280, raio:1.6 } },
-  { id:'holograma', nome:'Holograma', oculta:true, tipo:'tropa', art:'hologram',
-    hp:250, dmg:70, hit:1.3, range:5.2, speed:1.0, sight:7.2, alvo:'ambos',
-    raio:.3, massa:.5, deploy:.5, proj:'orb', hab:'balefire', hcd:3 }
 ];
 const CARD = Object.fromEntries(CARDS.map(c=>[c.id,c]));
 const POOL = CARDS.filter(c => !c.oculta);
 
-const PRESETS = {
-  ciclo:  ['esqueletos','goblins','morcegos','ariete','canhao','estalo','saraivada','arqueiras'],
-  pesado: ['gigante','arcanista','draco','cavaleiro','morcegos','bolide','estalo','arqueiras'],
-  enxame: ['esqueletos','goblins','morcegos','arqueiras','bombardeiro','cavaleiro','vortice','estalo'],
-  cerco:  ['canhao','bobina','arqueiras','bombardeiro','cavaleiro','bolide','saraivada','esqueletos'],
-  campeoes:['reibombado','pretobranco','boneca','esqueletos','estalo','arqueiras','saraivada','goblins']
-};
-const FOE_DECKS = [
-  ['gigante','arcanista','morcegos','cavaleiro','arqueiras','bolide','estalo','esqueletos'],
-  ['colosso','draco','goblins','bombardeiro','bobina','saraivada','estalo','arqueiras'],
-  ['ariete','morcegos','canhao','arqueiras','goblins','bolide','vortice','cavaleiro'],
-  ['cavaleiro','arcanista','draco','esqueletos','bombardeiro','saraivada','estalo','gigante'],
-  ['reibombado','arqueiras','esqueletos','estalo','cavaleiro','morcegos','saraivada','goblins'],
-  ['pretobranco','boneca','arqueiras','esqueletos','estalo','cavaleiro','bolide','goblins']
-];
+const DEFAULT_DECK = ['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
+const FOE_DECKS = [DEFAULT_DECK];
 
 /* ── 3. VFX: partículas, anéis, arcos, decalques, números ────────────── */
 const FX = {
@@ -3291,16 +3223,11 @@ function buildPool(){
     b.innerHTML = `<canvas></canvas><div class="nm">${c.nome}</div><div class="rl">${c.papel}</div>
                    <div class="cost mono">${c.custo}</div><div class="chk">✓</div>` +
                   (c.campeao ? '<div class="cbadge">'+(locked?'🔒 Bloqueado':'Campeão')+'</div>' : '');
-    if(locked)b.querySelector('.rl').textContent=c.id==='reibombado'?'Jogue 1 batalha online':'Campeão bloqueado';
-    pool.appendChild(b);
+        pool.appendChild(b);
     b.addEventListener('click', ()=>{
       AU.init(); AU.sfx('ui');
-      const i = deckSel.indexOf(c.id);
-      if(i<0&&c.campeao&&deckSel.some(id=>CARD[id].campeao)){toast('Escolha apenas 1 campeão',T.gold);return;}
-      if(i>=0) deckSel.splice(i,1);
-      else if(deckSel.length<8) deckSel.push(c.id);
-      else { b.animate([{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'none'}],140); return; }
-      syncDeck();
+      /* Baralho fixo de 8 cartas: não há outras cartas para trocar. */
+      b.animate([{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'none'}],140);
     });
   }
   requestAnimationFrame(()=>{
@@ -3320,15 +3247,6 @@ function syncDeck(){
   $('startHint').textContent = n===8 ? 'Pronto' : `Faltam ${8-n}`;
   try { localStorage.setItem(LS, JSON.stringify(deckSel)); } catch(e){}
   for(const ch of document.querySelectorAll('[data-preset]')) ch.classList.remove('on');
-}
-for(const ch of document.querySelectorAll('[data-preset]')){
-  ch.addEventListener('click', ()=>{
-    AU.init(); AU.sfx('ui');
-    const p = ch.dataset.preset;
-    deckSel = p==='limpar' ? [] : PROGRESS.sanitize(PRESETS[p].slice());
-    syncDeck();
-    if(p!=='limpar') ch.classList.add('on');
-  });
 }
 let diffSel = 1;
 for(const ch of document.querySelectorAll('[data-diff]')){

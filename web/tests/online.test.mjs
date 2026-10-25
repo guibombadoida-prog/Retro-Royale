@@ -25,7 +25,7 @@ const eq=(a,b)=>{assert.deepEqual(a,b);assertions++;};
 for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3v1':[3,1]})){
  const count=sizes[0]+sizes[1],profiles=[];for(let i=0;i<count+1;i++)profiles.push(await call(profile,{}));
  eq(profiles[0].unlocked,[]);eq(profiles[0].battles,0);
- const blocked=await call(room,{action:'create',mode,deck:['reibombado',...normal.slice(0,7)],profileToken:profiles[0].token});eq(blocked.status,403);
+ const blocked=await call(room,{action:'create',mode,deck:['reibombado',...normal.slice(0,7)],profileToken:profiles[0].token});eq(blocked.status,400);
  const host=await call(room,{action:'create',mode,deck:normal,profileToken:profiles[0].token,name:'Host'});eq(host.status,200);
  const members=[host];
  for(let i=1;i<count;i++)members.push(await call(room,{action:'join',code:host.code,deck:normal,profileToken:profiles[i].token,team:'auto',name:'P'+i}));
@@ -35,8 +35,8 @@ for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3
  for(const m of members)eq((await call(room,{action:'ready',code:m.code,token:m.token})).status,200);
  const lobby=await call(room,{action:'sync',code:host.code,token:host.token});eq(lobby.allReady,true);eq(lobby.progress.unlocked,[]);
  const snapshot={seq:1,state:'battle',units:[],towers:Array(6).fill({hp:4032}),players:members.map((m,i)=>({id:i,team:m.team,hand:normal.slice(0,4),next:normal[4]}))};
- eq((await call(room,{action:'sync',code:host.code,token:host.token,snapshot})).progress.unlocked,['reibombado']);
- for(let i=0;i<count;i++){const progress=await call(profile,{token:profiles[i].token});eq(progress.battles,1);eq(progress.unlocked,['reibombado']);}
+ eq((await call(room,{action:'sync',code:host.code,token:host.token,snapshot})).progress.unlocked,[]);
+ for(let i=0;i<count;i++){const progress=await call(profile,{token:profiles[i].token});eq(progress.battles,1);eq(progress.unlocked,[]);}
  const guest=members.at(-1);eq((await call(room,{action:'sync',code:guest.code,token:guest.token})).snapshot.seq,1);
  eq((await call(room,{action:'sync',code:guest.code,token:guest.token,snapshot:{...snapshot,seq:3}})).snapshot.seq,1);
  const input={seq:1,idx:0,card:'cavaleiro',x:200,y:200};for(let i=0;i<2;i++)eq((await call(room,{action:'input',code:guest.code,token:guest.token,input:{...input,playerId:0}})).status,200);
@@ -44,10 +44,10 @@ for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3
  eq((await call(room,{action:'input',code:guest.code,token:guest.token,input:{...input,x:'bad'}})).status,400);
  eq((await call(room,{action:'sync',code:host.code,token:'x'.repeat(72)})).status,403);
  eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:['reibombado','pretobranco',...normal.slice(0,6)]})).status,400);
- eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:['reibombado',...normal.slice(0,7)]})).status,200);
+ eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:['reibombado',...normal.slice(0,7)]})).status,400);
  await call(room,{action:'leave',code:guest.code,token:guest.token});eq((await call(room,{action:'sync',code:host.code,token:host.token})).status,410);
 }
 eq((await call(room,{action:'create',mode:'toString'})).status,400);
 eq((await call(room,null)).status,400);
 eq((await call(profile,{},'https://other.test')).status,403);
-console.log('Online API: '+assertions+' assertions passed across all four modes, champion locks, ownership, input deduplication and migrations.');
+console.log('Online API: '+assertions+' assertions passed across all four modes, removed cards rejected, ownership, input deduplication and migrations.');

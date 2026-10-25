@@ -93,9 +93,9 @@ function setupArena(){
   try{await navigator.clipboard.writeText(url.href);$('roomStatus').textContent='Convite copiado. Compartilhe com os jogadores.';}catch(e){$('roomStatus').textContent='Compartilhe o código '+NET.room.code;}
  };
  $('deckDetails').addEventListener('toggle',()=>{if($('deckDetails').open)for(const el of $('pool').children)paintCard(el.querySelector('canvas'),CARD[el.dataset.id]);});
- // The opening screen shows the actual arena and the supplied champion artwork.
+ // The opening screen shows the actual arena with a few of the deck's units.
  startMatch(deckSel,diffSel);G.state='menu';$('toast').classList.remove('show');
- for(const [id,sd,x,y] of [['pretobranco','ally',6,18.5],['reibombado','ally',10,20],['cavaleiro','foe',4,9],['draco','foe',13,8.5]]){
+ for(const [id,sd,x,y] of [['gigante','ally',6,18.5],['arqueiras','ally',10,20],['cavaleiro','foe',4,9],['morcegos','foe',13,8.5]]){
   const u=spawnUnit(id,sd,x*TILE,y*TILE,{deploy:0});u.spawnT=0;
  }
  FX.clear();$('foeName').textContent='Guardião do Vale';$('phase').textContent='Preparação';
