@@ -89,3 +89,15 @@ run("CONNECTION.available=()=>true;NET.acceptInput(1,{seq:1,idx:0,card:'cavaleir
 run("NET.acceptInput(1,{seq:1,idx:0,card:'cavaleiro',x:224,y:1400});");assert.equal(run('G.players[1].elixir'),7);
 run('advanceSimulation(1000100)');assert.ok(pausedTime-run('G.timeLeft')<.2);
 console.log('Network combat: disconnected input blocked, clock frozen, ordered queued input charged once and no time jump on reconnect.');
+// Sons no online: o anfitrião grava os sons da partida e o convidado repete; os sons só dele ficam fora.
+run("NET.active=true;NET.role='host';NET.team=0;NET.fxLog=[];NET.fxSeq=0;NET.hookSounds();NET.hookSounds();");
+run("AU.unit('cavaleiro','deploy','deploy');AU.unit('cavaleiro','step','step');AU.sfx('ui');AU.sfx('full');AU.sfx('boom',1.2);");
+assert.equal(run("NET.fxLog.map(e=>e[2]+':'+e[3][0]+':'+(e[3][1]??'')).join()"),'AU.unit:cavaleiro:deploy,AU.sfx:boom:1.2','só os sons da partida, uma vez cada (o genérico dentro do AU.unit não duplica)');
+run("NET.fxLog=[];G.players[0].hand=['goblins','arqueiras','cavaleiro','gigante'];G.players[0].elixir=10;TEAMS.sync();TEAMS.play(0,0,300,1300,'goblins');");
+assert.ok(run("NET.fxLog.some(e=>e[2]==='AU.unit'&&e[3][0]==='goblins'&&e[3][1]==='deploy')"),'jogar uma carta grava o som de entrada dela');
+const sounds=run("JSON.stringify(NET.capture().fx.filter(e=>e[1].startsWith('AU.')))");
+run(`NET.role='guest';NET.team=1;NET.fxSeen=0;globalThis.heard=[];AU.unit=(...a)=>heard.push('unit:'+a[0]+':'+a[1]);AU.sfx=(...a)=>heard.push('sfx:'+a[0]);
+ NET.ownSounds=[{id:'goblins',at:performance.now()}];NET.replayFx(${sounds});NET.replayFx([[999999,'AU.unit',['reibombado','deploy']],[1000000,'AU.sfx',['win']],[1000001,'AU.unit',['cavaleiro','step']]]);`);
+assert.equal(run('heard.join()'),'','a entrada que o convidado já tocou não repete; carta, som ou momento desconhecidos são ignorados');
+run(`NET.ownSounds=[];NET.fxSeen=0;NET.replayFx(${sounds});`);assert.equal(run('heard.join()'),'unit:goblins:deploy');
+console.log('Online sounds: host records match sounds once, guest replays them, own deploy not repeated, unknown sounds ignored.');
