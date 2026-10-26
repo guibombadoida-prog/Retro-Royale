@@ -2955,6 +2955,7 @@ function paintCard(cvs, card, teamKey='ally'){
   const g = cvs.getContext('2d');
   g.setTransform(d,0,0,d,0,0);
   const C = side[teamKey];
+  let portrait = null;
   const bg = g.createRadialGradient(w*.5,h*.86,2,w*.5,h*.5,h*1.15);
   bg.addColorStop(0, rgba(C.main,.2)); bg.addColorStop(.55, 'rgba(16,22,32,.9)'); bg.addColorStop(1,'#0B1017');
   g.fillStyle=bg; g.fillRect(0,0,w,h);
@@ -2964,6 +2965,10 @@ function paintCard(cvs, card, teamKey='ally'){
     g.save(); g.translate(w*.5, h*.5);
     SPELL_ART[card.art](g, Math.min(w,h)*.86);
     g.restore();
+  } else if(window.cardPortrait3D && (portrait = window.cardPortrait3D(card.art, teamKey))){
+    // Retrato do modelo 3D (arena3d.bundle.js); sem WebGL cai na arte 2D abaixo.
+    const ph = h*1.02, pw = ph*portrait.width/portrait.height;
+    g.drawImage(portrait, (w-pw)/2, h*.97-ph, pw, ph);
   } else {
     const [ah, xo] = ART_BOX[card.art] || [46,0];
     const sc = (h*.74)/ah;

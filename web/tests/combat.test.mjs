@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {unitModel,towerModel} from '../src/game/models3d.js';
+import {unitModel,towerModel,projectileModel,rubbleModel,setLowDetail} from '../src/game/models3d.js';
 import {animateRig,animateDeath} from '../src/game/animation.js';
 const gradient={addColorStop(){}};
 const canvas=new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient,measureText:()=>({width:10})},{get(o,k){return k in o?o[k]:(()=>{});}});
@@ -48,13 +48,26 @@ for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3
 run("NET.active=false;NET.role=null;startMatch(testNormal,1);const attacker=spawnUnit('cavaleiro','ally',576,800,{deploy:0});const target=spawnUnit('cavaleiro','foe',576,750,{deploy:0});attacker.spawnT=target.spawnT=0;attacker.atkT=0;attacker.target=target;attacker.retarget=1;const initialHP=target.hp;stepUnit(attacker,1/60);");
 assert.equal(run('target.hp'),run('initialHP'));assert.ok(run('attacker.attackWindup')>0);
 run('for(let i=0;i<20;i++)stepUnit(attacker,1/60)');assert.ok(run('target.hp')<run('initialHP'));
+const triangles=o=>{let t=0;o.traverse(c=>{if(c.isMesh&&!c.userData.outline)t+=(c.geometry.index?c.geometry.index.count:c.geometry.attributes.position.count)/3;});return t;};
+const finite=o=>{o.traverse(c=>{for(const v of [...c.position,...c.rotation.toArray().slice(0,3),...c.scale])assert.ok(Number.isFinite(v),c.name+' tem valor inválido');});};
 for(const art of ['knight','archer','goblin','giant','bomber','bat']){
- const model=unitModel(art,'ally'),rig={};for(const key of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing'])rig[key]=model.getObjectByName(key);
- const n={model,rig,oldX:0,oldY:0,angle:0},e={id:1,x:1,y:1,heading:.3,ph:2,moving:true,card:{art,deploy:1,proj:art==='archer'},attackWindup:.1,attackPrep:.18,atk:.5,hurt:.7,deploy:0};
- for(let i=0;i<30;i++)animateRig(n,e,i/60,1/60);for(const v of [...model.position,...model.rotation.toArray().slice(0,3),...model.scale])assert.ok(Number.isFinite(v));
- for(let i=0;i<30;i++)animateDeath(n,1/60);assert.ok(n.deathTime>.42);assert.ok(model.rotation.z>1);
+ const model=unitModel(art,'ally'),rig={};for(const key of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop'])rig[key]=model.getObjectByName(key);
+ if(art==='bat')assert.ok(rig.leftWing&&rig.rightWing);else for(const key of ['leftLeg','rightLeg','leftArm','rightArm','head'])assert.ok(rig[key],art+' sem '+key);
+ if(art==='bomber')assert.ok(rig.prop,'bombardeiro sem a bomba separada');
+ assert.ok(model.userData.style&&model.userData.height>.5);
+ // Orçamento do celular: cada tropa (sem o contorno) fica abaixo de 4.500 triângulos.
+ assert.ok(triangles(model)<4500,art+' tem '+triangles(model)+' triângulos');
+ const n={model,rig,oldX:0,oldY:0,angle:0},e={id:1,x:1,y:1,heading:.3,ph:2,moving:true,card:{art,deploy:1,proj:art==='archer'},attackWindup:.1,attackPrep:.18,atk:0,hurt:.7,deploy:.8,air:art==='bat',stun:0};
+ const phases=[{attackWindup:.12},{attackWindup:0,atk:1},{atk:.4,moving:false},{stun:.5,atk:0},{stun:0,deploy:0,hurt:0}];
+ for(const phase of phases){Object.assign(e,phase);for(let i=0;i<12;i++)animateRig(n,e,i/60,1/60);finite(model);}
+ if(rig.prop){e.atk=1;animateRig(n,e,1,1/60);assert.ok(rig.prop.scale.x<.01,'a bomba some ao ser lançada');}
+ for(let i=0;i<30;i++)animateDeath(n,1/60);assert.ok(n.deathTime>.42);assert.ok(Math.abs(model.rotation.z)>1);finite(model);
 }
-for(const side of ['ally','foe'])for(const king of [true,false]){const model=towerModel(side,king);assert.ok(model.getObjectByName('turret'));}
+for(const side of ['ally','foe'])for(const king of [true,false]){const model=towerModel(side,king);assert.ok(model.getObjectByName('turret'));assert.ok(triangles(model)<7500);}
+for(const kind of ['arrow','bolt','bomb'])assert.ok(triangles(projectileModel(kind,'foe'))>0);
+assert.ok(triangles(rubbleModel(true))>0);
+// Sem WebGL (CPU) os modelos são mais simples e não têm contorno.
+const high=triangles(unitModel('knight','foe'));setLowDetail(true);const low=unitModel('knight','foe');let outline=false;low.traverse(c=>{if(c.userData.outline)outline=true;});assert.equal(outline,false);assert.ok(triangles(low)<high*.6);setLowDetail(false);
 console.log('Combat: independent players, elixir rules, team mirroring, snapshot serialization, delayed attack impact and all 3D rigs passed.');
 // A disconnected host preserves combat time and player balances until the link returns.
 run("globalThis.CONNECTION={available:()=>false,paint(){}};NET.active=true;NET.role='host';NET.peerPaused=false;NET.remotePaused=false;G.state='battle';");
