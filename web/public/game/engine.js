@@ -330,7 +330,10 @@ const AU = {
       case 'bell':   this.tone(1200,{type:'sine',dur:.5,gain:.1*v,to:900});
                      this.tone(1800,{type:'sine',dur:.4,gain:.05*v,to:1400}); break;
     }
-  }
+  },
+  // Som de uma carta num momento (deploy, swing, attack, hit, impact, die, cast, step). O sfx.js toca o
+  // som próprio da carta quando ele carregou; sem ele fica o som genérico `fallback` (ou silêncio).
+  unit(id, event, fallback, v=1){ if(fallback) this.sfx(fallback, v); }
 };
 
 /* ── 5. Arte procedural ─────────────────────────────────────────────── */
@@ -1020,7 +1023,7 @@ function deployCard(cardId, sd, x, y){
       spawnUnit(cardId, sd, x+Math.cos(a)*R, y+Math.sin(a)*R*.72, {spawnT:i*.05});
     }
   }
-  AU.sfx('deploy');
+  AU.unit(cardId, 'deploy', 'deploy');
 }
 
 /* — Alvos — */
@@ -1108,7 +1111,8 @@ function kill(e, fling){
   sparks(e.x, e.y - e.r*.6, 12, C.main, 170);
   smoke(e.x, e.y, 5, '#2A303B', 34, e.r*.5);
   ring({ x:e.x, y:e.y, r0:e.r*.4, r1:e.r*2.2, life:.3, w:2, col:C.main, sq:.5 });
-  if(e.maxHp>900){ shakeIt(4); AU.sfx('punch',.7); } else AU.sfx('die',.6);
+  if(e.maxHp>900) shakeIt(4);
+  AU.unit(e.card?.id, 'die', e.maxHp>900?'punch':'die', e.maxHp>900?.7:.6);
   decal(e.x, e.y, e.r*1.3, '#120C08', .13, 8);
 }
 function fallTower(tw){
@@ -1186,7 +1190,7 @@ function impact(p){
     hitSpark(p.x, p.y, p.col || C, p.ang+PI);
     if(tg && !tg.dead && tg.alive!==false && dist(p.x,p.y,tg.x,tg.y) < (tg.r||30)+40){
       hurt(tg, p.dmg, p.side);
-      AU.sfx(p.kind==='bolt'?'arrow':'arrow',.4);
+      if(p.kind==='arrow') AU.unit('arqueiras', 'impact', 'arrow', .4); else AU.sfx('arrow',.4);
     }
   }
 }
@@ -1270,7 +1274,7 @@ function stepFields(dt){
         }
         ring({ x:f.x, y:f.y, r0:4, r1:R*1.15, life:.3, w:3, col:'#8FE3FF', sq:.5 });
         sparks(f.x, f.y, 24, '#CFF3FF', 300);
-        flashIt(.2,'#BFEFFF'); shakeIt(7); AU.sfx('zap',1.2);
+        flashIt(.2,'#BFEFFF'); shakeIt(7); AU.unit('estalo', 'cast', 'zap', 1.2);
         eachEnemyOf(f.sd, e=>{
           if(dist(f.x,f.y,e.x,e.y) < R + (e.r||0)*.5){
             hurt(e, s.dmg, f.sd, {spell:true});
@@ -1705,7 +1709,7 @@ function releaseAttack(u,t){
  if(dist(u.x,u.y,t.x,t.y)-(t.r||0)-u.r>u.range+TILE*.35)return;
  u.atk=1;
       const c = u.card;
-      if(c.proj) { shoot(u, t, c.proj, c.dmg, c.splash); AU.sfx(c.proj==='bomb'?'cannon':c.proj==='fire'?'fire':c.proj==='orb'?'magic':'bow', .35); }
+      if(c.proj) { shoot(u, t, c.proj, c.dmg, c.splash); AU.unit(c.id, 'attack', c.proj==='bomb'?'cannon':c.proj==='fire'?'fire':c.proj==='orb'?'magic':'bow', .35); }
       else if(c.zap){
         bolt(u.x, u.y-46, t.x, t.y-(t.kind==='tower'?40:t.r), {n:6, jag:14, w:2.2, life:.14, col:'#CFF3FF'});
         hurt(t, c.dmg, u.side); sparks(t.x,t.y-(t.r||20),8,'#CFF3FF',180); AU.sfx('zap',.5);
@@ -1714,7 +1718,7 @@ function releaseAttack(u,t){
         hurt(t, c.dmg, u.side);
         const a = Math.atan2(t.y-u.y, t.x-u.x);
         hitSpark(u.x+Math.cos(a)*(u.r+8), u.y+Math.sin(a)*(u.r+8)-u.r*.7, side[u.side].main, a);
-        AU.sfx(c.dmg>400?'punch':'sword', .45);
+        AU.unit(c.id, 'hit', c.dmg>400?'punch':'sword', .45);
         if(c.dmg>400) shakeIt(3);
       }
 }
@@ -1760,6 +1764,7 @@ function stepUnit(u, dt){
       u.atkT = u.card.hit; u.atk = 1;
       u.atk=0;u.attackPrep=u.card.dmg>400?.24:u.card.proj?.18:.16;
       u.attackWindup=u.attackPrep;u.attackTarget=t;u.atkT=Math.max(.15,u.card.hit-u.attackPrep);
+      AU.unit(u.card.id, 'swing');
     }
     u.ph += dt*3;
   } else if(!u.static){

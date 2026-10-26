@@ -45,7 +45,8 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
     │   ├── account.js           login por e-mail
     │   ├── connection.js        monitor de conexão e banner offline
     │   ├── config.js            onde o jogo está hospedado (RR_SITE); modo site sem API
-    │   ├── sfx.js, clock.js
+    │   ├── sfx.js               sons gravados: tropas (assets/sfx/tropas) e Kenney; o engine sintetiza a reserva
+    │   ├── clock.js
     │   ├── arena3d.bundle.js    BUNDLE GERADO do 3D (não edite à mão)
     │   └── assets/              fonts/, sfx/, vfx/ + README com créditos
     ├── src/game/                FONTE do 3D (vira o arena3d.bundle.js)
@@ -136,6 +137,13 @@ O anfitrião simula a 60 Hz e envia estado aos convidados 15 vezes por segundo. 
 - As partículas não viajam. O anfitrião registra as chamadas das funções de efeito listadas em `NET_FX` (`sparks`, `explode`, `dmgText`...) e o convidado repete as mesmas chamadas (`replayFx`, espelhando para o time de cima). Efeito novo que o convidado deve ver é uma função nova na seção 3 do engine.js **e** um nome em `NET_FX`; `part()` direto não aparece para o convidado.
 - Emissores contínuos (`walkDust`, `projTrail`, `meteorTrail`) o convidado gera sozinho no `NET.frame` a partir do estado.
 - O anfitrião não enfileira: se o canal ainda tem pacote pendente (`bufferedAmount`), pula o envio daquele quadro. Fila no celular vira ping alto.
+
+### Sons (`engine.js` seção 4, `sfx.js`)
+
+- O engine toca sons por nome (`AU.sfx('boom')`) e, para cartas, por momento: `AU.unit(id, evento, reserva, volume)` com `deploy` (carta jogada), `swing` (começo do golpe), `attack` (disparo à distância), `hit` (golpe corpo a corpo acertou), `impact` (flecha acertou), `die`, `cast` (feitiço) e `step` (passos/asas das suas tropas, no `AU.stepSfx`).
+- `sfx.js` tem a tabela `TROOPS` (carta → momento → arquivos em `assets/sfx/tropas/<carta>/`, um é sorteado) e `GAIN` (volume por momento). Para trocar o som de uma tropa, troque o arquivo ou a lista. Sem o arquivo carregado, toca a `reserva` genérica (Kenney ou sintetizada).
+- Os sons das tropas vieram do pacote do dono, **só efeitos, sem música** (decisão do dono). Não coloque música nem os "jingles" do pacote.
+- No online o anfitrião grava os sons da partida (`AU.sfx` com nome em `NET_SFX` e `AU.unit` com momento em `NET_UNIT_EVENTS`) junto com os efeitos, e o convidado os repete (`replaySound`). Sons só do próprio jogador (botões, elixir cheio, vitória, passos) não viajam; a entrada da carta que o convidado jogou não toca duas vezes (`ownSounds`).
 
 ### Progresso, conta e perfil
 

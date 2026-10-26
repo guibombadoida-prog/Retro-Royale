@@ -58,7 +58,11 @@ const netFill=(type,o)=>({...NET_DEFAULTS[type],abilityCD:{},...o});
 // número de dano...) e o convidado repete as mesmas chamadas, com o limite de partículas do próprio aparelho.
 // Os contínuos (poeira do passo, rastros) o convidado gera sozinho no NET.frame a partir do estado.
 const NET_FX=['ring','bolt','dmgText','decal','sparks','smoke','embers','shards','flingShards','hitSpark','explode','deployBurst','shakeIt','flashIt'];
-const fxOriginal={};let fxDepth=0;
+const fxOriginal={};let fxDepth=0,sfxDepth=0;
+// Sons da partida (tropas, torres, feitiços) vão do mesmo jeito; os só do próprio jogador (botões,
+// elixir cheio, vitória, passos das suas tropas) ficam fora.
+const NET_SFX=['deploy','sword','punch','arrow','bow','cannon','zap','fire','boom','magic','wind','die','tower','crown'];
+const NET_UNIT_EVENTS=['deploy','swing','attack','hit','impact','die','cast'];
 for(const name of NET_FX){
  const f=globalThis[name];if(typeof f!=='function')continue;fxOriginal[name]=f;
  // Só a chamada de fora é registrada: explode() já gera as faíscas e a fumaça dela no convidado.
@@ -68,7 +72,7 @@ for(const name of NET_FX){
  };
 }
 const NET={
- peerPaused:false,remotePaused:false,fxLog:[],fxSeq:0,fxSeen:0,ownDeploys:[],
+ peerPaused:false,remotePaused:false,fxLog:[],fxSeq:0,fxSeen:0,ownDeploys:[],ownSounds:[],
  live:null,liveSlots:new Set(),livePing:null,liveRtt:{},liveRetry:0,liveTimer:null,
  room:null,role:null,playerId:0,team:0,mode:'1v1',active:false,peers:new Map(),members:[],
  pending:new Map(),inboxes:new Map(),acks:{},results:{},inputSeq:0,snapshotSeq:0,seenState:0,
@@ -91,7 +95,7 @@ const NET={
   if(gen!==this.generation)return;
   this.room={code:data.code,token:data.token};this.role=data.role;this.playerId=data.playerId;this.team=data.team;this.mode=data.mode;
   this.lastPacket=performance.now();this.inputSeq=0;this.snapshotSeq=0;this.seenState=0;this.ownReady=false;this.acks={};this.results={};
-  this.fxLog=[];this.fxSeq=0;this.fxSeen=0;this.ownDeploys=[];this.liveRetry=0;
+  this.fxLog=[];this.fxSeq=0;this.fxSeen=0;this.ownDeploys=[];this.ownSounds=[];this.liveRetry=0;
   try{sessionStorage.setItem('retro-room',JSON.stringify({...this.room,role:this.role,playerId:this.playerId,team:this.team,mode:this.mode}));}catch(e){}
   this.showLobby();this.poll();this.openLive();
  },
@@ -225,9 +229,27 @@ const NET={
  },
  begin(members){
   if(members.length!==GAME_MODES[this.mode].reduce((a,b)=>a+b,0))return;
-  this.active=true;this.startView();TEAMS.init(members,this.mode);
+  this.active=true;this.startView();TEAMS.init(members,this.mode);this.hookSounds();
   for(const p of members){this.acks[p.id]=0;this.results[p.id]=[];}
   try{this.clock=new Worker('clock.js');this.clock.onmessage=()=>{if(document.hidden&&this.active){const now=performance.now();advanceSimulation(now);this.frame(1/30,now);}};}catch(e){}
+ },
+ // O anfitrião grava os sons da partida para o convidado repetir. Liga na primeira partida, quando o
+ // sfx.js já trocou AU.sfx/AU.unit pelos sons gravados (ele carrega depois deste arquivo).
+ hookSounds(){
+  if(AU.netHooked)return;AU.netHooked=true;
+  for(const method of ['sfx','unit']){
+   const f=AU[method];
+   AU[method]=function(...args){
+    if(sfxDepth===0&&NET.active&&NET.role==='host'&&(method==='unit'?NET_UNIT_EVENTS.includes(args[1]):NET_SFX.includes(args[0]))){NET.fxLog.push([++NET.fxSeq,performance.now(),'AU.'+method,args]);if(NET.fxLog.length>240)NET.fxLog.shift();}
+    sfxDepth++;try{return f.apply(this,args);}finally{sfxDepth--;}
+   };
+  }
+ },
+ replaySound(name,raw){
+  if(name==='AU.sfx'){if(NET_SFX.includes(raw[0]))AU.sfx(raw[0],clamp(+raw[1]||1,0,2));return;}
+  const [id,event,fallback,volume]=raw;if(!CARD[id]||!NET_UNIT_EVENTS.includes(event))return;
+  if(event==='deploy'){const now=performance.now(),own=this.ownSounds.findIndex(s=>s.id===id&&now-s.at<2500);if(own>=0){this.ownSounds.splice(own,1);return;}}
+  AU.unit(id,event,NET_SFX.includes(fallback)?fallback:null,clamp(+volume||1,0,2));
  },
  playOwn(idx,x,y){if(this.isPaused())return false;return this.role==='guest'?this.input(idx,x,y):TEAMS.play(this.playerId,idx,x,y);},
  abilityOwn(unitId,id){
@@ -244,7 +266,9 @@ const NET={
   this.pending.set(p.seq,{input:p,at:now});
   // O próprio convidado já desenhou a entrada; o efeito igual que volta do anfitrião é ignorado.
   this.ownDeploys=this.ownDeploys.filter(d=>now-d.at<3000);this.ownDeploys.push({x:p.x,y:p.y,at:now});
-  G.elixir.ally-=c.custo;cycleCard('ally',idx);deployBurst(x,y,T.ally);AU.sfx('deploy',.5);
+  G.elixir.ally-=c.custo;cycleCard('ally',idx);deployBurst(x,y,T.ally);AU.unit(card,'deploy','deploy',.5);
+  // O som de entrada que volta do anfitrião para esta carta não toca de novo.
+  if(c.tipo!=='feitico'){this.ownSounds=this.ownSounds.filter(s=>now-s.at<2500);this.ownSounds.push({id:card,at:now});}
   this.sendInput(p);return true;
  },
  ability(unitId,ability,spec){
@@ -290,7 +314,9 @@ const NET={
   const flip=this.team===1,Y=v=>flip&&typeof v==='number'?WH-v:v,A=v=>flip&&typeof v==='number'?-v:v;
   for(const e of list){
    if(!Array.isArray(e)||!Number.isSafeInteger(e[0])||e[0]<=this.fxSeen)continue;this.fxSeen=e[0];
-   const [,name,raw]=e,f=fxOriginal[name];if(!f||!Array.isArray(raw)||raw.length>8)continue;
+   const [,name,raw]=e;if(!Array.isArray(raw)||raw.length>8)continue;
+   if(name==='AU.sfx'||name==='AU.unit'){try{this.replaySound(name,raw);}catch{}continue;}
+   const f=fxOriginal[name];if(!f)continue;
    const a=raw.map(v=>typeof v==='number'&&!Number.isFinite(v)?0:v);
    if(name==='ring'){if(!a[0]||typeof a[0]!=='object')continue;a[0]=this.viewObject(a[0]);}
    else if(name==='bolt'){a[1]=Y(a[1]);a[3]=Y(a[3]);if(a[4]&&typeof a[4]==='object')a[4]={...a[4],n:clamp(a[4].n||7,1,20)};}
@@ -346,8 +372,6 @@ const NET={
    }else if(G.hand.ally[p.idx]===p.card){G.elixir.ally=Math.max(0,G.elixir.ally-CARD[p.card].custo);cycleCard('ally',p.idx);}
   }
   this.replayFx(s.fx);
-  if(previous.size<G.units.length)AU.sfx('deploy',.35);
-  if(G.units.some(u=>u.hurt>.8&&(previous.get(u.id)?.hurt||0)<.3))AU.sfx('punch',.25);
   $('app').dataset.phase=G.overtime?'overtime':'normal';$('dock').classList.toggle('x2',G.overtime||G.timeLeft<=60);
   if(!wasEnded&&G.ended)setTimeout(showResult,1000);
  },
