@@ -33,7 +33,7 @@ Legenda: **[verificado]** foi testado numa auditoria; **[não verificado]** é p
   3. Criar um token em *My Profile → API Tokens → Create Token*, modelo **Edit Cloudflare Workers**, e adicionar a permissão **Account → D1 → Edit**.
   4. No GitHub, *Settings → Secrets and variables → Actions*: segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
   5. *Actions → Servidor na Cloudflare → Run workflow*. Depois disso o site ganha o botão "Batalhar online" e o APK é refeito apontando para o servidor, sozinhos.
-- [ ] **Login por e-mail pelo Gmail do jogo (escolha do dono em 26/10/2026), pronto no código.** Falta o dono: criar um Gmail do jogo com verificação em duas etapas, gerar a senha de app e cadastrar os segredos `GMAIL_USER` e `GMAIL_APP_PASSWORD` no GitHub (passo a passo em `web/docs/EMAIL_LOGIN.md`). Depois, testar no celular: pedir o código, ver se chega (olhar o spam) e entrar em outro aparelho.
+- [ ] Opcional: login por e-mail (segredos `RESEND_API_KEY` e `LOGIN_EMAIL_FROM`, ver `web/docs/EMAIL_LOGIN.md`).
 - [ ] Opcional: domínio próprio. Ligar o domínio ao Worker na Cloudflare e criar a variável do repositório `ONLINE_URL` com o endereço novo (com `/` no fim).
 - Limites do plano grátis da Cloudflare (conferir no painel): por volta de 100 mil pedidos por dia no Worker e limites diários de leitura/escrita no D1. Com WebRTC direto, uma partida 1v1 de 3 minutos usa algumas centenas de pedidos.
 

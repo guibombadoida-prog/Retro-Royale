@@ -1,16 +1,12 @@
 import { env } from 'cloudflare:workers';
 import { apiError,hashToken,newToken,type Account } from './player-profile';
-import { sendMail,SmtpError } from './smtp';
 
 export const CODE_TTL=600000,RESEND_DELAY=60000;
-// Quem envia o código: a conta Gmail do jogo (GMAIL_USER + GMAIL_APP_PASSWORD, senha de app do Google)
-// ou, para quem tiver domínio próprio, o Resend (RESEND_API_KEY + LOGIN_EMAIL_FROM). O Gmail tem prioridade.
 export function emailConfig(){
- const e=env as unknown as Record<string,unknown>,text=(key:string)=>typeof e[key]==='string'?(e[key] as string).trim():'';
- const user=text('GMAIL_USER').toLowerCase(),password=text('GMAIL_APP_PASSWORD').replace(/\s+/g,'');
- if(user&&password&&/^[^\s@<>]+@[^\s@<>]+$/.test(user))return {provider:'gmail' as const,user,password,apiKey:'',from:'Retro Royale <'+user+'>',ready:true};
- const apiKey=text('RESEND_API_KEY'),from=text('LOGIN_EMAIL_FROM');
- return {provider:'resend' as const,user:'',password:'',apiKey,from,ready:!!apiKey&&!!from};
+ const e=env as unknown as Record<string,unknown>;
+ const apiKey=typeof e.RESEND_API_KEY==='string'?e.RESEND_API_KEY.trim():'';
+ const from=typeof e.LOGIN_EMAIL_FROM==='string'?e.LOGIN_EMAIL_FROM.trim():'';
+ return {apiKey,from,ready:!!apiKey&&!!from};
 }
 export function normalizeEmail(value:unknown){
  if(typeof value!=='string')apiError('Digite um Gmail ou e-mail válido.');
@@ -32,21 +28,14 @@ export function newCode(){
 }
 export async function sendLoginCode(email:string,code:string,requestId:string){
  const config=emailConfig();if(!config.ready)apiError('O envio de códigos ainda não foi ativado no jogo.',503);
- const message={subject:'Seu código de acesso — Retro Royale',text:`Seu código de acesso ao Retro Royale é: ${code}\n\nEle vale por 10 minutos e pode ser usado uma única vez. Digite o código no jogo para salvar e recuperar seu progresso.\n\nSe você não pediu este código, ignore este e-mail.`,html:`<div style="font-family:Arial,sans-serif;max-width:440px;margin:auto;padding:24px;color:#16385c"><h1 style="font-size:24px">Retro Royale</h1><p>Use este código para entrar no jogo:</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px">${code}</p><p>Válido por 10 minutos e para um único uso.</p><p>Se você não pediu este código, ignore este e-mail.</p></div>`};
  try{
-  if(config.provider==='gmail'){await sendMail({from:config.from,user:config.user,password:config.password,to:email,...message});return;}
   const response=await fetch('https://api.resend.com/emails',{
    method:'POST',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json','Idempotency-Key':'retro-login/'+requestId},
-   body:JSON.stringify({from:config.from,to:[email],...message}),
+   body:JSON.stringify({from:config.from,to:[email],subject:'Seu código de acesso — Retro Royale',text:`Seu código de acesso ao Retro Royale é: ${code}\n\nEle vale por 10 minutos e pode ser usado uma única vez. Digite o código no jogo para salvar e recuperar seu progresso.\n\nSe você não pediu este código, ignore este e-mail.`,html:`<div style="font-family:Arial,sans-serif;max-width:440px;margin:auto;padding:24px;color:#16385c"><h1 style="font-size:24px">Retro Royale</h1><p>Use este código para entrar no jogo:</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px">${code}</p><p>Válido por 10 minutos e para um único uso.</p><p>Se você não pediu este código, ignore este e-mail.</p></div>`}),
    signal:AbortSignal.timeout(8000)
   });
   if(!response.ok)throw new Error('Email transport failed');
- }catch(error){
-  // Para o dono descobrir o motivo nos registros do Worker (535 = senha de app recusada pelo Google);
-  // só o código SMTP ou o tipo do erro, nunca a senha.
-  console.error('login_email_failed',config.provider,error instanceof SmtpError?error.code:String((error as Error)?.message||error).slice(0,120));
-  apiError('Não foi possível enviar o código. Aguarde um minuto e tente novamente.',503);
- }
+ }catch{apiError('Não foi possível enviar o código. Aguarde um minuto e tente novamente.',503);}
 }
 export async function linkEmail(db:D1Database,email:string,guestHash:string){
  const guest=await db.prepare('SELECT settings FROM player_profiles WHERE token_hash=?').bind(guestHash).first<{settings:string|null}>();

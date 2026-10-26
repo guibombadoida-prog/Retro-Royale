@@ -31,7 +31,7 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
     ├── worker/index.ts          entrada do Worker: /api/live vai para a sala ao vivo, o resto para o app (vinext)
     ├── app/                     Next.js (vinext): page.tsx + rotas de API
     │   └── api/{health,profile,room,account/[action]}/route.ts
-    ├── lib/                     player-profile.ts, email-account.ts, smtp.ts (envio pelo Gmail), live-room.ts (sala ao vivo)
+    ├── lib/                     player-profile.ts, email-account.ts, live-room.ts (sala ao vivo)
     ├── db/                      schema.ts (Drizzle) e index.ts
     ├── drizzle/                 migrações SQL geradas (0000..0002)
     ├── wrangler.jsonc           Worker "retro-royale" + banco D1 "retro-royale" (binding DB) + Durable Object RoomLive (binding LIVE)
@@ -147,14 +147,14 @@ O anfitrião simula a 60 Hz e envia estado aos convidados 15 vezes por segundo. 
 
 ### Progresso, conta e perfil
 
-Visitante: token de 72 caracteres hex em `localStorage` (`retro-profile-token`), guardado só como hash no servidor. Conta: login por e-mail com código (enviado pelo Gmail do jogo via SMTP em `lib/smtp.ts`, ou pelo Resend), cookie `rr_session` `HttpOnly`. Ao verificar o e-mail, o progresso de visitante é copiado para o perfil da conta. Revisões evitam sobrescrever outro dispositivo (HTTP 409). Detalhes em `web/docs/EMAIL_LOGIN.md`.
+Visitante: token de 72 caracteres hex em `localStorage` (`retro-profile-token`), guardado só como hash no servidor. Conta: login por e-mail com código (Resend), cookie `rr_session` `HttpOnly`. Ao verificar o e-mail, o progresso de visitante é copiado para o perfil da conta. Revisões evitam sobrescrever outro dispositivo (HTTP 409). Detalhes em `web/docs/EMAIL_LOGIN.md`.
 
 ## 4. Backend (web/app, web/lib, web/db)
 
 - Next.js 16 via **vinext**, alvo **Cloudflare Workers + D1** (SQLite). Banco com Drizzle; migrações em `web/drizzle/`. Para mudar o schema: edite `db/schema.ts`, rode `pnpm db:generate`, e nunca edite migração antiga.
 - Rotas: `GET /api/health` (devolve `{ok:true, service:'retro-royale'}`; o cliente **exige** `service === 'retro-royale'`), `POST /api/profile`, `POST /api/room`, `POST /api/account/[action]` (`request-code`, `verify-code`, `logout`).
 - Tabelas: `rooms`, `inputs`, `team_rooms`, `room_players`, `team_inputs`, `player_profiles`, `profile_battles`, `email_accounts`, `account_sessions`, `email_login_codes`.
-- Segredos (nunca no código): `GMAIL_USER` + `GMAIL_APP_PASSWORD` (Gmail do jogo com senha de app; escolha do dono, tem prioridade) ou `RESEND_API_KEY` + `LOGIN_EMAIL_FROM` (Resend, precisa de domínio). Sem nenhum par o login por e-mail aparece como "será liberado em breve". O workflow só envia ao Worker os pares completos.
+- Segredos (nunca no código): `RESEND_API_KEY`, `LOGIN_EMAIL_FROM`. Sem eles o login por e-mail aparece como "será liberado em breve".
 - Validação de cartas no servidor: `CARDS` em `app/api/room/route.ts` e `CARD_IDS` em `lib/player-profile.ts`. Os dois **precisam** ter exatamente os mesmos ids do `CARDS` do engine.
 - **Servidor (online, contas, progresso): Cloudflare Workers + D1 + Durable Objects na conta grátis do dono.** `web/wrangler.jsonc` define o Worker `retro-royale` (entrada `worker/index.ts`), o banco `retro-royale` (binding `DB`, migrações em `drizzle/`) e o Durable Object `RoomLive` (binding `LIVE`, classe SQLite do plano grátis, migração `v1`). Classe nova ou renomeada de Durable Object precisa de uma migração nova em `migrations` (nunca edite a `v1`). O banco D1 foi criado sem dica de local e ficou longe do Brasil; por isso a partida não passa mais por ele quando há caminho direto ou ao vivo. `.github/workflows/cloudflare.yml` roda testes, build e `wrangler deploy --dry-run` em pull requests; na `main`, com os segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, cria o banco se precisar (`node tools/cloudflare.mjs banco`, que grava o `database_id` só no CI), aplica as migrações, publica, confere `/api/health` e manda refazer o site e, se o endereço mudou, o APK. Endereço: `https://retro-royale.<subdomínio>.workers.dev/`; a variável do repositório `ONLINE_URL` troca por um domínio próprio. O ChatGPT Sites foi removido.
 - O site próprio do dono é o **GitHub Pages** (`https://guibombadoida-prog.github.io/Retro-Royale/`): `.github/workflows/pages.yml` roda `node tools/build-pages.mjs` em pull requests e publica a partir da `main`. Ele junta `site/index.html` (a lista de cartas vem do `CARDS` do engine.js) com uma cópia de `web/public/` e falha se algum caminho for absoluto ou não existir. Só o treino roda lá. O workflow pergunta o endereço do servidor com `node tools/cloudflare.mjs endereco` (só vale se `/api/health` responder) e passa em `ONLINE_URL` para o build; vazio = "online em breve". Na `site/index.html`, trechos entre `<!-- COM-ONLINE -->` e `<!-- SEM-ONLINE -->` dependem disso.
@@ -212,7 +212,6 @@ Rode a partir de `web/`:
 ```sh
 node tests/online.test.mjs        # API real em SQLite, 4 modos, validação de baralho
 node tests/account.test.mjs       # login por e-mail, CSRF, limites, migração de progresso
-node tests/gmail.test.mjs         # envio do código pelo Gmail (SMTP com servidor falso)
 node tests/progress.test.mjs      # cliente de progresso
 node tests/email-client.test.mjs  # UI de e-mail contra a API real
 node tests/connection.test.mjs    # monitor de conexão
@@ -233,4 +232,4 @@ Online de verdade em casa: `pnpm build && pnpm db:migrate:local && pnpm start` e
 - Faça mudanças pequenas e rode os testes depois de cada uma.
 - Antes de renomear ou remover algo, procure todas as referências (`grep -rn`) em `public/game/`, `src/game/`, `app/`, `lib/`, `tests/` e na documentação.
 - Se o dono mandar assets do Roblox (FBX/OBJ/GLB, texturas, animações em CFrame), o plano de integração está em `TAREFAS.md`, seção "Modelos e animações".
-- Não invente: se algo depender de uma conta, chave ou decisão do dono (hospedagem, domínio, e-mail do jogo), pergunte.
+- Não invente: se algo depender de uma conta, chave ou decisão do dono (hospedagem, domínio, Resend), pergunte.
