@@ -1,15 +1,22 @@
-// Servidor do jogo na Cloudflare (Workers + banco D1), na conta do dono.
+// Servidor do jogo na Cloudflare (Workers + banco D1 + Durable Objects), na conta do dono.
 // O deploy é pelo workflow .github/workflows/cloudflare.yml. Lá, tools/cloudflare.mjs cria o banco se precisar
 // e preenche o database_id só na máquina do CI; localmente o banco é o simulado do `wrangler dev`.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "retro-royale",
-  "main": "vinext/server/fetch-handler",
+  // worker/index.ts manda /api/live para a sala ao vivo e o resto para o app (vinext/server/fetch-handler).
+  "main": "./worker/index.ts",
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "observability": { "enabled": true },
   "d1_databases": [
     { "binding": "DB", "database_name": "retro-royale", "migrations_dir": "drizzle" }
-  ]
+  ],
+  // Sala ao vivo: um Durable Object por sala repassa a partida por WebSocket (lib/live-room.ts).
+  // "new_sqlite_classes" é o tipo de Durable Object do plano grátis.
+  "durable_objects": {
+    "bindings": [{ "name": "LIVE", "class_name": "RoomLive" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomLive"] }]
 }

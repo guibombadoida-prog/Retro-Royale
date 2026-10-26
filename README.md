@@ -6,7 +6,7 @@ Online server: Cloudflare Workers on the owner's own free account (`https://retr
 
 The browser and Android app run the same 3D game and join the same room by its six-character code. Available online modes: **1v1, 2v1, 2v2 and 3v1**. Every participant has their own hand, card cycle and elixir. In asymmetric modes, the solo player's elixir regenerates 2× or 3× faster. All participants must occupy the room and press **Estou pronto** before the match starts.
 
-The 3D look is cartoon: rounded chibi troops with toon shading, dark outlines and strong team colors, stone towers with ballistas, a meadow arena with a river and wooden bridges, all built in code (`web/src/game/`). Each troop has its own attack animation (sword, dagger, punch, bow, throw, bite) plus walk, idle, hit, stun, drop-in entry and death; card icons are portraits rendered from the same 3D models. WebGL renders the scene; a software triangle renderer (with lighter models) preserves the 3D geometry when WebGL is unavailable. The portrait HUD follows the supplied mobile layout: blue card panel, four-card hand, next card, segmented elixir, enemy name, timer and round champion abilities. Original character art is retained. Licensed sound clips and particle textures are credited in `public/game/assets/README.md`.
+The 3D look is cartoon (built for phones: each troop is one skinned mesh per material, troop shadows are instanced blobs, the tower shadow map is static, and an automatic quality ladder lowers resolution, shadows and outlines when frames run late): rounded chibi troops with toon shading, dark outlines and strong team colors, stone towers with ballistas, a meadow arena with a river and wooden bridges, all built in code (`web/src/game/`). Each troop has its own attack animation (sword, dagger, punch, bow, throw, bite) plus walk, idle, hit, stun, drop-in entry and death; card icons are portraits rendered from the same 3D models. WebGL renders the scene; a software triangle renderer (with lighter models) preserves the 3D geometry when WebGL is unavailable. The portrait HUD follows the supplied mobile layout: blue card panel, four-card hand, next card, segmented elixir, enemy name, timer and round champion abilities. Original character art is retained. Licensed sound clips and particle textures are credited in `public/game/assets/README.md`.
 
 ## Cards
 
@@ -16,7 +16,7 @@ Visitor progress is tied to the installation/browser profile and can be transfer
 
 ## Online synchronization
 
-The host simulates combat at 60 Hz and shares state with every guest. Ordered WebRTC channels carry commands; state updates use an unreliable channel. HTTPS room synchronization provides signaling, heartbeat and a fallback when a direct connection cannot be established. Guests predict their own card cycle/elixir immediately and interpolate authoritative units. Commands are sequenced, bound to the sender and deduplicated. Network latency remains dependent on the connection. Reloading or leaving as host ends the room; disconnected guests can reconnect while the host remains online.
+The host simulates combat at 60 Hz and shares state with every guest 15 times per second. Three transports are tried, fastest first, and the match badge shows which one is in use: **DIRETO** (WebRTC: ordered channel for commands, unreliable channel for state), **AO VIVO** (a WebSocket to a Cloudflare Durable Object per room that relays host and guest messages, used when mobile networks block WebRTC) and **ONLINE** (HTTPS room synchronization, which also provides signaling and the heartbeat). State packets carry only the fields guests render (about 5 KB); particles are not sent: the host records its effect calls and guests replay them locally. Guests predict their own card cycle/elixir immediately and interpolate authoritative units. Commands are sequenced, bound to the sender and deduplicated. Network latency remains dependent on the connection. Reloading or leaving as host ends the room; disconnected guests can reconnect while the host remains online.
 
 ## Web source and checks
 
@@ -30,11 +30,11 @@ node node_modules/typescript/bin/tsc --noEmit
 
 The Node tests cover actual API routes on SQLite with the generated migrations, all team capacities, readiness, server-side rejection of removed cards, command deduplication, combat ownership, independent elixir, coordinate mirroring, delayed attack damage and all 3D rigs. They do not replace visual browser QA or testing on a physical Android device.
 
-Also `node tests/cloudflare.test.mjs` (deploy helper, mocked Cloudflare API).
+Also `node tests/cloudflare.test.mjs` (deploy helper, mocked Cloudflare API) and `node tests/live.test.mjs` (live room: token check, relay routing, size/rate limits, reconnect).
 
 ## Online server (Cloudflare)
 
-Online rooms, email accounts and cloud saves run on Cloudflare Workers + D1 in the owner's free account. `web/wrangler.jsonc` names the Worker `retro-royale` and binds the D1 database `retro-royale` as `DB`, with the Drizzle migrations in `web/drizzle/`. `.github/workflows/cloudflare.yml` runs the tests, builds and dry-runs the Worker on pull requests. On `main` it creates the database if needed (`node tools/cloudflare.mjs banco`), applies the migrations, deploys, checks `/api/health`, then rebuilds the website and, when the server address changed, the APK.
+Online rooms, email accounts and cloud saves run on Cloudflare Workers + D1 + Durable Objects in the owner's free account. `web/wrangler.jsonc` names the Worker `retro-royale` (entry `web/worker/index.ts`), binds the D1 database `retro-royale` as `DB`, with the Drizzle migrations in `web/drizzle/`, and the live-room Durable Object `RoomLive` as `LIVE` (SQLite class, available on the free plan). `.github/workflows/cloudflare.yml` runs the tests, builds and dry-runs the Worker on pull requests. On `main` it creates the database if needed (`node tools/cloudflare.mjs banco`), applies the migrations, deploys, checks `/api/health`, then rebuilds the website and, when the server address changed, the APK.
 
 One-time setup:
 

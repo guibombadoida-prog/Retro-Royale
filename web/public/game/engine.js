@@ -197,6 +197,36 @@ function explode(x,y,r,col,col2='#FFE9A8'){
   embers(x,y,budget(16),col);
   flashIt(.16,col2); shakeIt(r*.05);
 }
+// Emissores contínuos (poeira do passo, rastro de projétil e do Bólide): no online o convidado
+// chama os mesmos a cada quadro a partir do estado recebido, em vez de receber as partículas.
+function walkDust(x,y){
+  part({ x:x+rnd(-6,6), y:y+rnd(-3,3), vx:rnd(-8,8), vy:rnd(-6,6), vz:rnd(4,18), g:-14,
+         drag:.9, life:rnd(.25,.6), max:.6, r:rnd(1.4,3), r2:rnd(6,11), col:'#39404C',
+         add:false, kind:'puff', rot:rnd(TAU), vr:rnd(-2,2) });
+}
+function projTrail(p, chance=1){
+  if(PROJ[p.kind]?.fiery && Math.random()<.6*chance)
+    part({ x:p.x, y:p.y-p.z, vx:rnd(-14,14), vy:rnd(-14,14), vz:rnd(6,30), g:-30, drag:.9,
+           life:rnd(.2,.5), max:.5, r:rnd(1.4,3), col:pick(['#FFC061','#FF7A2A','#FF4E12']), kind:'dot' });
+  if(PROJ[p.kind]?.magic && Math.random()<.5*chance)
+    part({ x:p.x, y:p.y-p.z, vx:rnd(-10,10), vy:rnd(-10,10), vz:rnd(4,22), g:-10, drag:.9,
+           life:rnd(.25,.55), max:.55, r:rnd(1,2.4), col:p.col, kind:'dot' });
+}
+function meteorTrail(f, n=3){
+  const k = f.t/f.dur, mx = f.x, my = f.y - (1-k)*(1-k)*520;
+  for(let j=0;j<n;j++)
+    part({ x:mx+rnd(-9,9), y:my+rnd(-9,9), vx:rnd(-20,20), vy:rnd(-30,10), vz:rnd(-40,20),
+           g:-20, drag:.92, life:rnd(.25,.6), max:.6, r:rnd(2,5),
+           col:pick(['#FFDB8A','#FF9A3C','#FF5A14']), kind:'dot' });
+}
+function flingShards(x,y,fling,col){
+  for(let i=0;i<budget(16);i++){
+    const a = fling + rnd(-.5,.5), sp = rnd(320,760);
+    part({ x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp*.6, vz:rnd(90,340),
+           g:-620, drag:.99, life:rnd(.5,1), max:1, r:rnd(2.4,5.6), col,
+           add:false, kind:'shard', rot:rnd(TAU), vr:rnd(-14,14) });
+  }
+}
 function deployBurst(x,y,col){
   ring({ x,y, r0:TILE*.9, r1:TILE*.15, life:.42, w:3, col, sq:.5 });
   ring({ x,y, r0:6, r1:TILE*.8, life:.34, w:2, col, sq:.5 });
@@ -1071,12 +1101,7 @@ function kill(e, fling){
   const C = side[e.side];
   if(fling !== undefined){
     // arremessado a alta velocidade pelo golpe que o apagou
-    for(let i=0;i<budget(16);i++){
-      const a = fling + rnd(-.5,.5), sp = rnd(320,760);
-      part({ x:e.x, y:e.y-e.r*.6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp*.6, vz:rnd(90,340),
-             g:-620, drag:.99, life:rnd(.5,1), max:1, r:rnd(2.4,5.6), col:C.deep,
-             add:false, kind:'shard', rot:rnd(TAU), vr:rnd(-14,14) });
-    }
+    flingShards(e.x, e.y-e.r*.6, fling, C.deep);
     sparks(e.x, e.y-e.r*.6, 14, C.main, 340, {a:fling, spread:.7});
   }
   shards(e.x, e.y - e.r*.6, 12 + (e.maxHp>1200?10:0), C.deep, 120 + e.r);
@@ -1142,12 +1167,7 @@ function stepProjs(dt){
     p.z = p.arc ? Math.sin(k*PI) * dist(p.sx,p.sy,p.tx,p.ty) * p.arc * .5 : 0;
     p.ang = Math.atan2(p.y - py, p.x - px);
     p.hist.push(p.x, p.y - p.z); if(p.hist.length > 14) p.hist.splice(0,2);
-    if(PROJ[p.kind].fiery && Math.random()<.6)
-      part({ x:p.x, y:p.y-p.z, vx:rnd(-14,14), vy:rnd(-14,14), vz:rnd(6,30), g:-30, drag:.9,
-             life:rnd(.2,.5), max:.5, r:rnd(1.4,3), col:pick(['#FFC061','#FF7A2A','#FF4E12']), kind:'dot' });
-    if(PROJ[p.kind].magic && Math.random()<.5)
-      part({ x:p.x, y:p.y-p.z, vx:rnd(-10,10), vy:rnd(-10,10), vz:rnd(4,22), g:-10, drag:.9,
-             life:rnd(.25,.55), max:.55, r:rnd(1,2.4), col:p.col, kind:'dot' });
+    projTrail(p);
     if(k >= 1){ impact(p); G.projs.splice(i,1); }
   }
 }
@@ -1198,11 +1218,7 @@ function stepFields(dt){
     const R = ((f.s && f.s.raio) || 2) * TILE;
     if(f.kind==='meteor'){
       const k = f.t/f.dur;
-      const mx = f.x, my = f.y - (1-k)*(1-k)*520, mz = 0;
-      for(let j=0;j<3;j++)
-        part({ x:mx+rnd(-9,9), y:my+rnd(-9,9), vx:rnd(-20,20), vy:rnd(-30,10), vz:rnd(-40,20),
-               g:-20, drag:.92, life:rnd(.25,.6), max:.6, r:rnd(2,5),
-               col:pick(['#FFDB8A','#FF9A3C','#FF5A14']), kind:'dot' });
+      meteorTrail(f);
       if(k>=1){
         const s=f.s;
         explode(f.x, f.y, R*1.05, '#FF7A2A', '#FFE9A8');
@@ -1754,10 +1770,7 @@ function stepUnit(u, dt){
     u.x += Math.cos(a)*sp*dt; u.y += Math.sin(a)*sp*dt;
     if(Math.abs(Math.cos(a))>.12) u.facing = Math.cos(a)>0?1:-1;
     u.ph += dt * (4 + sp/TILE*3.2);
-    if(!u.air && Math.random() < dt*7)
-      part({ x:u.x+rnd(-6,6), y:u.y+rnd(-3,3), vx:rnd(-8,8), vy:rnd(-6,6), vz:rnd(4,18), g:-14,
-             drag:.9, life:rnd(.25,.6), max:.6, r:rnd(1.4,3), r2:rnd(6,11), col:'#39404C',
-             add:false, kind:'puff', rot:rnd(TAU), vr:rnd(-2,2) });
+    if(!u.air && Math.random() < dt*7) walkDust(u.x, u.y);
   } else { u.ph += dt*1.6; }
 
   // empurrão acumulado (vórtice, bólide)
@@ -2171,15 +2184,16 @@ function resize(){
   if(!w || !h) return;
   DPR = Math.min(PREF.light?1:1.5, window.devicePixelRatio||1);
   VW = w; VH = h;
-  cv.width = w*DPR; cv.height = h*DPR;
-  gl.width = Math.max(1,(w*DPR*.44)|0); gl.height = Math.max(1,(h*DPR*.44)|0);
-  gl2.width = Math.max(1,(w*DPR*.22)|0); gl2.height = Math.max(1,(h*DPR*.22)|0);
-  buildBackdrop(w,h);
   const padX = w < 640 ? 5 : 10, padY = w < 640 ? 6 : 10;
   cam.s = Math.min((w-padX*2)/WW, (h-padY*2)/WH);
   cam.ox = (w - WW*cam.s)/2; cam.oy = (h - WH*cam.s)/2;
   RAIL.on = getComputedStyle($rail).display !== 'none';
-  if(ARENA3D){ARENA3D.resize();return;}
+  // Com o 3D, o #cv é só a camada de toque: 1×1 pixel em vez de uma tela inteira vazia na memória.
+  if(ARENA3D){cv.width = cv.height = 1;ARENA3D.resize();return;}
+  cv.width = w*DPR; cv.height = h*DPR;
+  gl.width = Math.max(1,(w*DPR*.44)|0); gl.height = Math.max(1,(h*DPR*.44)|0);
+  gl2.width = Math.max(1,(w*DPR*.22)|0); gl2.height = Math.max(1,(h*DPR*.22)|0);
+  buildBackdrop(w,h);
   buildGround();
   buildSprites();
   buildTowerSprites();
@@ -2619,8 +2633,9 @@ function drawGlowLayer(t){
 
 /* — composição do quadro — */
 const UI = { holding:null, hx:0, hy:0, valid:false, pointer:false };
+// O canvas 2D (#cv) só recebe os toques: nada é desenhado nele, então não é limpo a cada quadro
+// (limpar obrigava o navegador a recompor uma camada transparente da tela inteira toda vez).
 function render(t){
-  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
   if(ARENA3D?.ready)ARENA3D.render({G,FX,UI,CARD,PREF,QUALITY},t);
 }
 function legacyCanvasRender(t){
@@ -3310,12 +3325,21 @@ function advanceSimulation(now){
     }
   }else{acc=0;stepFX(Math.min(.05,dt));}
 }
+// Telas de 90/120 Hz chamam o quadro mais vezes: o desenho fica em ~60 por segundo (a simulação
+// continua em passos fixos de 1/60 s), o que corta pela metade o trabalho da placa de vídeo nelas.
+let drawBudget = 0, drawnAt = 0;
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(.1,(now-last)/1000);last=now;
-  avgFrame=avgFrame*.92+dt*1000*.08;
-  QUALITY=PREF.light ? .3 : avgFrame>34 ? .3 : avgFrame>23 ? .6 : 1;
-  advanceSimulation(now);NET.frame(dt,now);render(now/1000);
+  advanceSimulation(now);NET.frame(dt,now);
+  drawBudget=Math.min(1/30,drawBudget+dt);
+  if(drawBudget>=1/60-.004){
+    drawBudget=Math.max(0,drawBudget-1/60);
+    const gap=drawnAt?Math.min(100,now-drawnAt):16.7;drawnAt=now;
+    avgFrame=avgFrame*.92+gap*.08;
+    QUALITY=PREF.light ? .3 : avgFrame>34 ? .3 : avgFrame>23 ? .6 : 1;
+    render(now/1000);
+  }
   uiT+=dt;if(uiT>.05){uiT=0;if(G.state!=='menu')syncHUD();}
 }
 
