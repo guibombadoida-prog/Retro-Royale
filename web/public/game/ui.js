@@ -104,7 +104,7 @@ function setupArena(){
  const oldFrame=frame;
  frame=function(now){if(now-lastFPS>=1000){const drawn=ARENA3D?.framesRendered||0;$('fps').textContent=ARENA3D?.ready?'3D · '+Math.round((drawn-lastDrawn)*1000/(now-lastFPS))+' FPS':'3D indisponível';lastFPS=now;lastDrawn=drawn;}
   if(G.state==='menu')for(const u of G.units)u.ph+=.012;
-  oldFrame(now);AU.stepSfx?.(G);
+  oldFrame(now);AU.stepSfx?.(G);AU.ambience?.(G);
  };
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&!NET.active&&G.state==='battle')togglePause();});
  // Links land at /; the same-origin parent passes the room code into the game.

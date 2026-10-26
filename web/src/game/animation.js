@@ -4,7 +4,8 @@ const ease=k=>k*k*(3-2*k);
 
 /* As poses vêm só do estado autoritativo do combate (também nos snapshots do online):
    moving/ph (passo), attackWindup/attackPrep (preparação), atk 1→0 (golpe: o dano sai em atk=1),
-   hurt (dano recebido), stun (atordoado) e deploy (entrada). `userData.style` escolhe o ataque. */
+   hurt (dano recebido), stun (atordoado) e deploy (entrada). `userData.style` escolhe o ataque.
+   Princesa da Bolha: cast (conjurando a bolha), bolha (presa flutuando) e caindo (a bolha estourou). */
 const STYLES={
  // [braço direito na preparação, no golpe], [giro do corpo prep/golpe], avanço no golpe, inclinação prep/golpe
  sword:{arm:[-2.7,-1.15],armZ:[.35,-.15],off:[-.55,-.7],twist:[.4,-.35],lunge:.16,lean:[-.08,.16]},
@@ -32,8 +33,11 @@ export function animateRig(n,e,time,dt,menu=false){
  const pose=(part,x,y=0,z=0,speed=fast)=>{const p=rig[part];if(!p)return;p.rotation.x=approach(p.rotation.x,x,dt,speed);p.rotation.y=approach(p.rotation.y,y,dt,speed);p.rotation.z=approach(p.rotation.z,z,dt,speed);};
  const mix=a=>a[0]*prep*(1-strike)+a[1]*strike;
 
- // Pernas: passo curto e largo de boneco chibi.
- pose('leftLeg',wave*.85*walk,0,0,22);pose('rightLeg',-wave*.85*walk,0,0,22);
+ const trapped=e.bolha>0,falling=!!e.caindo,kick=Math.sin(time*6+id);
+ // Pernas: passo curto e largo de boneco chibi; presa na bolha, pedala no ar.
+ if(trapped){pose('leftLeg',kick*.6,0,-.15,14);pose('rightLeg',-kick*.6,0,.15,14);}
+ else if(falling){pose('leftLeg',-.25,0,-.3,20);pose('rightLeg',-.25,0,.3,20);}
+ else{pose('leftLeg',wave*.85*walk,0,0,22);pose('rightLeg',-wave*.85*walk,0,0,22);}
  // Braços: balanço do passo + respiração + ataque do estilo.
  const swing=wave*.7*walk*(1-n.fight),idle=menu?.08:.05;
  let rx=-swing+breathe*idle*.5,rz=-.08-breathe*.03,lx=swing-breathe*idle*.5,lz=.08+breathe*.03;
@@ -41,7 +45,13 @@ export function animateRig(n,e,time,dt,menu=false){
  if(m.userData.style==='sword')lx=Math.min(lx,-.55*n.fight+swing);
  if(m.userData.style==='bow'){lx=-1.5*n.fight+swing*(1-n.fight);lz=.05;rx=n.fight*(-1.45+prep*.95-strike*.35)+rx*(1-n.fight);}
  if(stun){rx=.35+Math.sin(time*7)*.15;lx=.35-Math.sin(time*7)*.15;rz=-.35;lz=.35;}
- pose('rightArm',rx,0,rz);pose('leftArm',lx,0,lz);
+ // Conjurando: ergue a espada de bolhas bem alto e aponta para onde a bolha vai.
+ const conj=e.card?.bolha?.conjura,cast=e.cast>0&&conj?ease(clamp(1-e.cast/conj,0,1)):0;
+ if(cast){rx=-1.5-cast*1.35;rz=-.2;lx=-.35;lz=.6;}
+ // Presa: bate os braços dentro da bolha; caindo: braços para cima.
+ if(trapped){rx=-2.3+kick*.45;lx=-2.3-kick*.45;rz=-.55;lz=.55;}
+ if(falling){rx=-2.9;lx=-2.9;rz=-.3;lz=.3;}
+ pose('rightArm',rx,0,rz,trapped||falling?14:fast);pose('leftArm',lx,0,lz,trapped||falling?14:fast);
 
  // Asas (morcego): batem sempre, mais rápido ao atacar.
  const flap=Math.sin(time*(attack>0||prep>0?26:17)+id)*.75;
@@ -60,6 +70,8 @@ export function animateRig(n,e,time,dt,menu=false){
  const twist=mix(style.twist),lean=.1*walk+mix(style.lean)-hit*.3;
  m.rotation.y=n.angle+twist;
  if(stun){m.rotation.z=Math.sin(time*11)*.1;m.rotation.x=-.06;}
+ else if(trapped){m.rotation.z=Math.sin(time*2.4+id)*.2;m.rotation.x=approach(m.rotation.x,-.12+Math.sin(time*1.7)*.08,dt,6);}
+ else if(cast){m.rotation.z=approach(m.rotation.z,0,dt,10);m.rotation.x=approach(m.rotation.x,-.12*cast,dt,12);}
  else{m.rotation.z=approach(m.rotation.z,Math.sin(phase)*.06*walk+hit*Math.sin(time*40)*.05,dt,20);m.rotation.x=approach(m.rotation.x,lean,dt,fast);}
  const fx=Math.sin(n.angle),fz=Math.cos(n.angle),lunge=style.lunge*strike-.06*prep*(style.lunge>0?1:0);
  m.position.x+=fx*lunge;m.position.z+=fz*lunge;

@@ -6,7 +6,7 @@ import ts from 'typescript';
 import {webcrypto} from 'node:crypto';
 import {harness} from './api-harness.mjs';
 const profileUtils=harness().load('lib/player-profile.ts');
-const normal=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
+const normal=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'],princessDeck=['princesa',...normal.slice(1)];
 const database=new DatabaseSync(':memory:');
 for(const name of readdirSync('drizzle').filter(n=>n.endsWith('.sql')).sort())database.exec(readFileSync('drizzle/'+name,'utf8'));
 class Query{
@@ -28,7 +28,8 @@ for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3
  const blocked=await call(room,{action:'create',mode,deck:['reibombado',...normal.slice(0,7)],profileToken:profiles[0].token});eq(blocked.status,400);
  const host=await call(room,{action:'create',mode,deck:normal,profileToken:profiles[0].token,name:'Host'});eq(host.status,200);
  const members=[host];
- for(let i=1;i<count;i++)members.push(await call(room,{action:'join',code:host.code,deck:normal,profileToken:profiles[i].token,team:'auto',name:'P'+i}));
+ // Quem entra pode trazer a Princesa da Bolha no lugar de uma carta (8 de 9).
+ for(let i=1;i<count;i++)members.push(await call(room,{action:'join',code:host.code,deck:i%2?princessDeck:normal,profileToken:profiles[i].token,team:'auto',name:'P'+i}));
  eq(members.map(m=>m.playerId),Array.from({length:count},(_,i)=>i));eq(members.map(m=>m.team),[...Array(sizes[0]).fill(0),...Array(sizes[1]).fill(1)]);
  eq((await call(room,{action:'join',code:host.code,deck:normal,profileToken:profiles[count].token})).status,409);
  eq((await call(room,{action:'sync',...host})).allReady,false);
@@ -45,6 +46,9 @@ for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3
  eq((await call(room,{action:'sync',code:host.code,token:'x'.repeat(72)})).status,403);
  eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:['reibombado','pretobranco',...normal.slice(0,6)]})).status,400);
  eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:['reibombado',...normal.slice(0,7)]})).status,400);
+ eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:[...normal,'princesa']})).status,400);
+ eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:['princesa','princesa',...normal.slice(2)]})).status,400);
+ eq((await call(room,{action:'input',code:guest.code,token:guest.token,input:{...input,seq:2,card:'princesa'}})).status,200);
  await call(room,{action:'leave',code:guest.code,token:guest.token});eq((await call(room,{action:'sync',code:host.code,token:host.token})).status,410);
 }
 eq((await call(room,{action:'create',mode:'toString'})).status,400);

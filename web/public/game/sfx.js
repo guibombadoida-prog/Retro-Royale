@@ -14,7 +14,8 @@
   gigante:{deploy:['gigante/giant_deploy_01'],swing:seq('gigante/giant_attack_swing_',1,3),hit:['gigante/giant_hit_01'],die:DIE,step:['gigante/demon_step_01']},
   bombardeiro:{deploy:['bombardeiro/skeleton_deploy_03'],attack:['bombardeiro/skeleton_atk_03'],die:DIE,step:['bombardeiro/skeleton_step_02']},
   morcegos:{deploy:['morcegos/bat_deploy_01'],hit:['morcegos/bat_atk_01'],die:DIE,step:['morcegos/bat_fly_01']},
-  estalo:{cast:['estalo/zap_02']}
+  estalo:{cast:['estalo/zap_02']},
+  princesa:{hit:['princesa/SlashSound_12222216'],die:DIE}
  };
  // Volume de cada momento (o pacote já vem nivelado perto de 0 dB).
  const GAIN={deploy:.5,swing:.32,attack:.4,hit:.42,impact:.3,die:.4,cast:.6,step:.16};
@@ -32,6 +33,7 @@
  }
  AU.init=function(){
   baseInit();if(!this.ctx)return;if(this.ctx.state==='suspended')this.ctx.resume().catch(()=>{});
+  unlockAmbient();
   if(loading)return;loading=true;
   for(const name of files)load(name,'assets/sfx/'+name+'.ogg');
   for(const name of troopFiles)load(name,'assets/sfx/tropas/'+name+'.ogg');
@@ -56,5 +58,58 @@
   const mine=game.units.filter(u=>u.moving&&!u.dead&&u.deploy<=0&&u.side==='ally'&&(!NET.active||u.playerId===NET.playerId));
   if(!mine.length)return;stepAt=now;
   const u=mine[Math.floor(Math.random()*mine.length)];this.unit(u.card?.id,'step',u.air?null:'step',.3);
+ };
+
+ // Princesa da Bolha (pedido do dono): a música da habilidade toca só enquanto a habilidade está ativa
+ // (conjurando, bolha voando ou alguém preso ou caindo) e o som de água só enquanto alguém flutua numa
+ // bolha. São arquivos longos, então tocam por <audio> (sem decodificar tudo na memória), entram e saem
+ // em fade e a música continua de onde parou. O app Android só deixa um <audio> tocar depois de um toque:
+ // os dois são destravados com um som mudo no primeiro toque (AU.init) e só depois recebem o arquivo.
+ const AMBIENT={
+  musica:{file:'princesa/EtherealNightWhispers_140648151329276',volume:.28,fade:.8,hold:1.2},
+  agua:{file:'princesa/Water_101335249234967',volume:.32,fade:.35,hold:.15}
+ };
+ const tracks=[];let ambientAt=0;
+ function silentWav(){
+  const n=800,b=new Uint8Array(44+n),v=new DataView(b.buffer),text=(at,s)=>{for(let i=0;i<s.length;i++)b[at+i]=s.charCodeAt(i);};
+  text(0,'RIFF');v.setUint32(4,36+n,true);text(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);text(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
+ }
+ function createAmbient(){
+  if(tracks.length||typeof Audio==='undefined')return;
+  try{
+   const silent=silentWav();
+   for(const [name,a] of Object.entries(AMBIENT)){
+    const el=new Audio(silent);el.loop=true;el.preload='none';
+    tracks.push({name,el,level:0,since:-9,loaded:false,playing:false,unlocked:false,failAt:-9,...a});
+   }
+  }catch{}
+ }
+ // Chamado a cada toque (AU.init) até cada <audio> tocar uma vez dentro de um toque.
+ function unlockAmbient(){
+  createAmbient();
+  for(const t of tracks)if(!t.unlocked)t.el.play().then(()=>{t.unlocked=true;if(!t.playing)t.el.pause();},()=>{});
+ }
+ function loadAmbient(){for(const t of tracks)if(!t.loaded){t.loaded=true;t.el.pause();t.el.preload='auto';t.el.src='assets/sfx/tropas/'+t.file+'.ogg';t.el.load();}}
+ AU.ambience=function(game){
+  if(!tracks.length)return;
+  const now=performance.now()/1000,dt=Math.min(.1,Math.max(0,now-(ambientAt||now)));ambientAt=now;
+  const battle=game.state==='battle'&&this.on&&!document.hidden,units=game.units.filter(u=>!u.dead);
+  // Carrega os arquivos quando a Princesa está em algum baralho ou em campo.
+  if(battle&&!tracks[0].loaded&&(units.some(u=>u.card?.bolha)||Object.values(game.deck||{}).some(d=>Array.isArray(d)&&d.includes('princesa'))))loadAmbient();
+  const floating=battle&&units.some(u=>u.bolha>0);
+  const active=floating||battle&&(units.some(u=>u.cast>0||u.caindo)||game.projs.some(p=>p.kind==='bubble'));
+  for(const t of tracks){
+   if(t.name==='agua'?floating:active)t.since=now;
+   const want=t.loaded&&battle&&now-t.since<=t.hold,step=dt*t.volume/t.fade;
+   t.level=want?Math.min(t.volume,t.level+step):Math.max(0,t.level-step);
+   try{
+    t.el.volume=t.level;
+    // Se o aparelho recusar tocar (ainda travado), tenta de novo só depois de 1 s.
+    if(t.level>0&&!t.playing&&now-t.failAt>1){t.playing=true;t.el.play().then(()=>{t.unlocked=true;},()=>{t.playing=false;t.failAt=performance.now()/1000;});}
+    else if(t.level===0&&t.playing){t.playing=false;t.el.pause();}
+   }catch{}
+  }
  };
 })();

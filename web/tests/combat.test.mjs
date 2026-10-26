@@ -51,7 +51,7 @@ assert.equal(run('target.hp'),run('initialHP'));assert.ok(run('attacker.attackWi
 run('for(let i=0;i<20;i++)stepUnit(attacker,1/60)');assert.ok(run('target.hp')<run('initialHP'));
 const triangles=o=>{let t=0;o.traverse(c=>{if(c.isMesh&&!c.userData.outline)t+=(c.geometry.index?c.geometry.index.count:c.geometry.attributes.position.count)/3;});return t;};
 const finite=o=>{o.traverse(c=>{for(const v of [...c.position,...c.rotation.toArray().slice(0,3),...c.scale])assert.ok(Number.isFinite(v),c.name+' tem valor inválido');});};
-for(const art of ['knight','archer','goblin','giant','bomber','bat']){
+for(const art of ['knight','archer','goblin','giant','bomber','bat','princess']){
  const model=unitModel(art,'ally'),rig={};for(const key of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop'])rig[key]=model.getObjectByName(key);
  if(art==='bat')assert.ok(rig.leftWing&&rig.rightWing);else for(const key of ['leftLeg','rightLeg','leftArm','rightArm','head'])assert.ok(rig[key],art+' sem '+key);
  if(art==='bomber')assert.ok(rig.prop,'bombardeiro sem a bomba separada');
@@ -101,3 +101,33 @@ run(`NET.role='guest';NET.team=1;NET.fxSeen=0;globalThis.heard=[];AU.unit=(...a)
 assert.equal(run('heard.join()'),'','a entrada que o convidado já tocou não repete; carta, som ou momento desconhecidos são ignorados');
 run(`NET.ownSounds=[];NET.fxSeen=0;NET.replayFx(${sounds});`);assert.equal(run('heard.join()'),'unit:goblins:deploy');
 console.log('Online sounds: host records match sounds once, guest replays them, own deploy not repeated, unknown sounds ignored.');
+
+// Princesa da Bolha: a bolha automática prende só tropas terrestres inimigas, que flutuam sem andar nem
+// atacar, levam o dano do estouro e o da queda e voltam ao chão; voadores e torres ficam de fora.
+run(`NET.active=false;NET.role=null;startMatch(testNormal,1);G.units.length=0;G.projs.length=0;
+ globalThis.pr=spawnUnit('princesa','ally',576,1100,{deploy:0});globalThis.kn=spawnUnit('cavaleiro','foe',576,900,{deploy:0});globalThis.bt=spawnUnit('morcegos','foe',640,900,{deploy:0});
+ for(const u of [pr,kn,bt])u.static=true;
+ globalThis.world=(s,each=()=>{})=>{for(let i=0;i<Math.round(s*60);i++){for(const u of G.units)if(!u.dead)stepUnit(u,1/60);stepProjs(1/60);each();}};`);
+assert.equal(run('CARD.princesa.hp'),450);assert.equal(run('CARD.princesa.custo'),5);assert.equal(run('CARD.princesa.alvo'),'chao');
+run('world(1.4)');assert.equal(run('G.projs.length'),0,'a primeira bolha espera a recarga inicial');
+run(`globalThis.casted=0;globalThis.launched=0;world(1.2,()=>{if(pr.cast>0)casted++;if(G.projs.some(p=>p.kind==='bubble'))launched++;});`);
+assert.ok(run('casted')>20,'ela para e conjura antes de lançar');assert.ok(run('launched')>0,'a bolha voa até o alvo');
+run(`world(1.2);globalThis.start={x:kn.x,y:kn.y,hp:kn.hp};`);
+assert.ok(run('kn.bolha')>0&&run('kn.z')>40,'o cavaleiro inimigo flutua preso na bolha');assert.ok(!run('bt.bolha'),'morcego voa e não é preso');
+run(`globalThis.attacked=0;world(.8,()=>{if(kn.attackWindup>0||kn.atk>0)attacked++;});`);
+assert.equal(run('attacked'),0,'preso não ataca');assert.equal(run('kn.x===start.x&&kn.y===start.y'),true,'preso não anda');
+const snap=JSON.parse(JSON.stringify(run("netPick([kn],'unit')[0]")));assert.ok(snap.bolha>0&&snap.z>0,'o estado da bolha vai para o convidado');
+for(const name of ['bubbleCast','bubblePop','bubbleLand'])assert.ok(run(`NET_FX.includes('${name}')`),name+' é repetido no convidado');
+run(`globalThis.popped=0;world(3,()=>{if(!popped&&kn.caindo)popped=kn.maxHp-kn.hp;});`);
+assert.equal(run('popped'),150,'o estouro tira 150');assert.equal(run('kn.maxHp-kn.hp'),250,'estouro + queda tiram 250');
+assert.equal(run('kn.z'),0);assert.equal(run('!!kn.caindo'),false);assert.equal(run('bt.hp'),run('bt.maxHp'));
+// Recarga: a segunda bolha só vem 7 s depois da primeira.
+run(`G.units.length=0;G.projs.length=0;globalThis.pr=spawnUnit('princesa','ally',576,1100,{deploy:0});globalThis.gg=spawnUnit('gigante','foe',576,950,{deploy:0});pr.static=gg.static=true;globalThis.casts=[];
+ globalThis.t=0;world(10,()=>{t+=1/60;if(pr.cast>0&&(!casts.length||t-casts.at(-1)>1))casts.push(t);});`);
+assert.equal(run('casts.length'),2);assert.ok(Math.abs(run('casts[1]-casts[0]')-7)<.1,'recarga de 7 s');
+// Baralho com a Princesa: oito cartas diferentes entre as nove; a IA também pode usar.
+assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos']).join()`),'princesa,arqueiras,goblins,gigante,bolide,estalo,bombardeiro,morcegos');
+assert.equal(run(`PROGRESS.sanitize(['princesa','princesa','goblins','gigante','bolide','estalo','bombardeiro','morcegos'])[0]`),'cavaleiro','repetida volta ao padrão');
+assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','reibombado'])[0]`),'cavaleiro','carta removida volta ao padrão');
+assert.ok(run(`FOE_DECKS.some(d=>d.includes('princesa'))&&FOE_DECKS.every(d=>PROGRESS.sanitize(d).join()===d.join())`));
+console.log('Princesa da Bolha: automatic bubble after cooldown, ground enemies float without moving or attacking, 150 pop + 100 fall damage, air units spared, 7 s recharge, state and effects reach guests, 8-of-9 deck validation.');

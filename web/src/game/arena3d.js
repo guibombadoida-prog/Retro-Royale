@@ -87,6 +87,27 @@ function soft(){
   r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.55,'rgba(255,255,255,.65)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,64);softTexture=new T.CanvasTexture(c);}
  return softTexture;
 }
+// Bolha da Princesa: vidro com borda que muda de cor (iridescente) e um brilho. Sem WebGL vira uma
+// esfera azul translúcida comum, que o renderizador por CPU sabe desenhar.
+function bubbleMaterial(software){
+ if(software)return new T.MeshBasicMaterial({color:'#9fe6ff',transparent:true,opacity:.3,depthWrite:false});
+ return new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{time:{value:0},opacity:{value:1}},
+  vertexShader:`varying vec3 vN;varying vec3 vV;void main(){vec4 p=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-p.xyz);gl_Position=projectionMatrix*p;}`,
+  fragmentShader:`uniform float time;uniform float opacity;varying vec3 vN;varying vec3 vV;void main(){vec3 n=normalize(vN);float f=pow(1.-abs(dot(n,normalize(vV))),2.2);vec3 irid=.55+.45*cos(6.2832*(f*1.4+time*.12+vec3(0.,.33,.67)));vec3 c=mix(vec3(.62,.9,1.),irid,.5*f+.15);float s=pow(max(dot(n,normalize(vec3(-.45,.6,.65))),0.),28.);gl_FragColor=vec4(c+s*1.4,clamp((.1+f*.7+s)*opacity,0.,1.));}`});
+}
+class Bubbles{
+ constructor(scene,software){this.scene=scene;this.software=software;this.geo=new T.SphereGeometry(1,software?10:28,software?8:20);this.items=[];this.used=0;}
+ reset(){this.used=0;}
+ // A cena é esticada em z (scene.scale.z); a bolha compensa para continuar redonda na tela.
+ get(x,y,z,r,time,opacity=1){
+  let m=this.items[this.used++];
+  if(!m){m=new T.Mesh(this.geo,bubbleMaterial(this.software));m.renderOrder=3;this.scene.add(m);this.items.push(m);}
+  m.visible=true;m.position.set(x,y,z);m.scale.set(r,r,r/1.25);
+  if(m.material.uniforms){m.material.uniforms.time.value=time;m.material.uniforms.opacity.value=opacity;}else m.material.opacity=.3*opacity;
+  return m;
+ }
+ finish(){for(let i=this.used;i<this.items.length;i++)this.items[i].visible=false;}
+}
 function starGeometry(){const s=new T.Shape();for(let i=0;i<10;i++){const r=i%2?.42:1,a=i/10*TAU+Math.PI/2;s[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);}const g=new T.ExtrudeGeometry(s,{depth:.25,bevelEnabled:false});g.center();return g;}
 
 export class Arena3D{
@@ -132,7 +153,8 @@ export class Arena3D{
   this.stars=new Pool(this.scene,starGeometry(),{add:true});
   this.beams=new Pool(this.scene,new T.CylinderGeometry(1,1,1,8,1,true),{add:true});
   this.decals=new Pool(this.scene,flat(new T.CircleGeometry(1,24)),{map});
-  this.poolList=[this.rings,this.discs,this.orbs,this.puffs,this.chunks,this.stars,this.beams,this.decals];
+  this.bubbles=new Bubbles(this.scene,this.software);
+  this.poolList=[this.rings,this.discs,this.orbs,this.puffs,this.chunks,this.stars,this.beams,this.decals,this.bubbles];
   this.projectiles=new ModelPool(this.scene,key=>{const [kind,side]=key.split(':');return projectileModel(kind,side);});
   this.deployRing=new T.Mesh(flat(new T.RingGeometry(.9,1,48)),new T.MeshBasicMaterial({color:palette.ally,side:T.DoubleSide,transparent:true,opacity:.85,depthWrite:false}));this.deployRing.visible=false;this.scene.add(this.deployRing);
   this.zone=new T.Mesh(new T.PlaneGeometry(18,12),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.12,depthWrite:false}));this.zone.rotation.x=-Math.PI/2;this.zone.position.set(0,.06,7);this.zone.visible=false;this.scene.add(this.zone);
@@ -266,6 +288,7 @@ export class Arena3D{
     const spawn=1-(e.deploy||0)/(e.card.deploy||1);
     if(!n.landed&&spawn>=.3&&!e.air){n.landed=true;this.dust(e.x,e.y,(e.r||24)/64);}else if(spawn>=.3)n.landed=true;
     if(e.stun>0)this.stunStars(m,time,e.id);
+    this.bubbleOf(n,e,m,time,dt);
    }else if(n.rig.turret){n.rig.turret.rotation.y=Math.PI/2-(e.aim||0);const k=e.recoil||0;n.rig.turret.position.set(Math.cos(e.aim||0)*-k*.16,n.turretY,Math.sin(e.aim||0)*-k*.16);}
    n.oldX=e.x;n.oldY=e.y;
    if(!tower){const r=(e.r||24)/64;if(!e.air)this.feet.add(m.position.x,.05,m.position.z,r*1.6,palette[e.side]);this.blobs?.add(m.position.x,.035,m.position.z,r*(e.air?1.1:1.5),'#1d3812');}
@@ -294,6 +317,21 @@ export class Arena3D{
   for(let i=0;i<10;i++){const a=i/10*TAU+i;this.spawn({kind:'puff',x,y,h:.3+(i%3)*.3,vx:Math.cos(a)*2.6*size,vz:Math.sin(a)*2.6*size,vy:1.1+(i%4)*.35,r:.2*size,life:.65});}
   if(tower)for(let i=0;i<12;i++){const a=i*2.4;this.spawn({kind:'chunk',x,y,h:1.5,vx:Math.cos(a)*(2+i%3),vz:Math.sin(a)*(2+i%3),vy:4+(i%4),r:.12+(i%3)*.06,life:1.1,c:i%2?palette.stone:palette.stoneDark});}
  }
+ // Princesa da Bolha: bolha crescendo na ponta da espada enquanto conjura, bolha em volta de quem
+ // está preso (cresce, balança) e o estouro quando ela some.
+ bubbleOf(n,e,m,time,dt){
+  const h=m.userData.height||1.6;
+  if(e.cast>0&&e.card?.bolha){const k=clamp(1-e.cast/(e.card.bolha.conjura||.5),0,1);
+   this.bubbles.get(m.position.x+Math.sin(n.angle)*.12,m.position.y+h*1.1+k*.15,m.position.z+Math.cos(n.angle)*.12,.06+.22*k,time);}
+  const R=h*.62+.12;
+  if(e.bolha>0){
+   n.bubbleT=(n.bubbleT||0)+dt;const g=clamp(n.bubbleT/.3,0,1),grow=1+Math.sin(g*Math.PI)*.18-(1-g)*.6,w=Math.sin(time*6+(e.id||0))*.04;
+   const b=this.bubbles.get(m.position.x,m.position.y+h*.5,m.position.z,R*grow,time);b.scale.x*=1+w;b.scale.y*=1-w;
+  }else if(n.bubbleT){
+   n.bubbleT=0;const hh=m.position.y+h*.5;
+   this.spawn({kind:'flash',x:e.x,y:e.y,h:hh,r:R*.9,life:.16,c:'#e6faff'});this.spawn({kind:'sparkle',x:e.x,y:e.y,h:hh,life:.4,c:'#bff1ff'});
+  }
+ }
  stunStars(m,time,id){const h=m.position.y+(m.userData.height||1.6)*.98;for(let i=0;i<3;i++){const a=time*5+i*TAU/3+id;const s=this.stars.get('#ffe14d',.95);s.position.set(m.position.x+Math.cos(a)*.38,h+Math.sin(a*2)*.05,m.position.z+Math.sin(a)*.38);s.scale.setScalar(.11);s.rotation.set(0,a*2,0);}}
  updateFx3(dt){
   for(let i=this.fx3.length-1;i>=0;i--){const f=this.fx3[i];f.t+=dt;const k=f.t/f.life;if(k>=1){this.fx3.splice(i,1);continue;}
@@ -317,6 +355,7 @@ export class Arena3D{
   // Projéteis com modelo 3D apontando na direção do voo (arco das bombas incluído).
   for(const p of G.projs.slice(-100)){
    const k=clamp(p.t/p.dur,0,1),lift=mix(p.lift0||45,p.lift1||25,k),h=.25+((p.z||0)+lift)/64,D=Math.max(1,Math.hypot(p.tx-p.sx,p.ty-p.sy));
+   if(p.kind==='bubble'){this.bubbles.get(p.x/64-9,h,(p.y+lift)/64-13,.3+Math.sin(time*9)*.02,time);continue;}
    const kind=['arrow','bolt','bomb','ball'].includes(p.kind)?p.kind:null;
    if(!kind){this.orb(p.x,p.y+lift,h,(p.r||3)/64*1.6,p.col||'#ffca76');continue;}
    const m=this.projectiles.get(kind+':'+(p.side||'ally')),ang=p.ang||0;

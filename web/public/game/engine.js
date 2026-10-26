@@ -95,12 +95,21 @@ const CARDS = [
   { id:'morcegos', nome:'Morcegos', custo:2, tipo:'tropa', papel:'enxame aéreo', art:'bat',
     n:4, hp:75, dmg:55, hit:.95, range:.85, speed:1.40, sight:5.5, alvo:'ambos',
     raio:.24, massa:.4, deploy:1.0, ar:true },
+  { id:'princesa', nome:'Princesa da Bolha', custo:5, tipo:'tropa', papel:'prende em bolhas', art:'princess', nova:true,
+    hp:450, dmg:140, hit:1.1, range:1.0, speed:.75, sight:5.5, alvo:'chao',
+    raio:.34, massa:1.0, deploy:1.0,
+    // Habilidade automática: a cada `recarga` s lança uma bolha a até `alcance` casas. As tropas terrestres
+    // inimigas na `area` flutuam por `flutua` s, levam `estouro` quando a bolha estoura e `queda` ao cair.
+    bolha:{ recarga:7, primeira:1.5, alcance:5, area:1.8, flutua:2.5, estouro:150, queda:100, conjura:.55 } },
 ];
 const CARD = Object.fromEntries(CARDS.map(c=>[c.id,c]));
 const POOL = CARDS.filter(c => !c.oculta);
 
 const DEFAULT_DECK = ['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
-const FOE_DECKS = [DEFAULT_DECK];
+// A IA sorteia um destes: o baralho padrão ou um com a Princesa no lugar de uma carta.
+const FOE_DECKS = [DEFAULT_DECK,
+  ['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'],
+  ['cavaleiro','arqueiras','princesa','gigante','bolide','estalo','bombardeiro','morcegos']];
 
 /* ── 3. VFX: partículas, anéis, arcos, decalques, números ────────────── */
 const FX = {
@@ -227,6 +236,26 @@ function flingShards(x,y,fling,col){
            add:false, kind:'shard', rot:rnd(TAU), vr:rnd(-14,14) });
   }
 }
+// Bolha da Princesa: a bolha cai na área (anel e gotas), estoura no alto e a tropa bate no chão.
+// No online o convidado repete estas chamadas (NET_FX em online.js).
+function bubbleCast(x,y,R){
+  ring({ x,y, r0:R*.15, r1:R, life:.45, w:4, col:'#9FE6FF', sq:.5 });
+  ring({ x,y, r0:R*.9, r1:R*1.05, life:.6, w:2, col:'#E6FAFF', sq:.5 });
+  sparks(x,y,16,'#BFF1FF',160);
+}
+function bubblePop(x,y,z){
+  ring({ x,y, r0:6, r1:46, life:.28, w:3, col:'#E6FAFF', sq:.5 });
+  sparks(x,y,14,'#9FE6FF',220,{z});
+  for(let i=0;i<budget(10);i++){
+    const a=rnd(TAU), s=rnd(40,120);
+    part({ x, y, z, vx:Math.cos(a)*s, vy:Math.sin(a)*s*.6, vz:rnd(40,160), g:-520, drag:.97,
+           life:rnd(.4,.8), max:.8, r:rnd(1.6,3.2), col:'#7FD8FF', add:false, kind:'dot' });
+  }
+}
+function bubbleLand(x,y,r){
+  smoke(x,y,6,'#C9B48C',38,r*.55);
+  ring({ x,y, r0:r*.5, r1:r*2.4, life:.32, w:3, col:'#E8DCC0', sq:.5 });
+}
 function deployBurst(x,y,col){
   ring({ x,y, r0:TILE*.9, r1:TILE*.15, life:.42, w:3, col, sq:.5 });
   ring({ x,y, r0:6, r1:TILE*.8, life:.34, w:2, col, sq:.5 });
@@ -327,6 +356,9 @@ const AU = {
       case 'win':    [523,659,784,1046,1318].forEach((f,i)=> this.tone(f,{type:'triangle',dur:.55,gain:.12*v,delay:i*.1})); break;
       case 'full':   this.tone(880,{type:'sine',dur:.14,gain:.07*v,to:1320}); break;
       case 'ui':     this.tone(620,{type:'square',dur:.04,gain:.045*v,to:900}); break;
+      case 'pop':    this.tone(420,{type:'sine',dur:.09,gain:.16*v,to:1500});
+                     this.noiseHit({dur:.06,gain:.12*v,f:3200,sweep:5200,type:'bandpass',q:2.2});
+                     this.tone(1900,{type:'sine',dur:.16,gain:.05*v,to:2600,delay:.03}); break;
       case 'bell':   this.tone(1200,{type:'sine',dur:.5,gain:.1*v,to:900});
                      this.tone(1800,{type:'sine',dur:.4,gain:.05*v,to:1400}); break;
     }
@@ -405,7 +437,7 @@ const ART_BOX = { knight:[52,0], archer:[44,0], goblin:[36,-1], skeleton:[36,-1]
   ram:[52,-9], colossus:[90,1], mage:[56,-1], bomber:[38,-2], bat:[30,0], drake:[50,-3],
   cannon:[36,-2], coil:[48,0],
   bombking:[74,1], bpingo:[40,-2], bsirene:[40,-2], bogiva:[42,-2], bcoveiro:[42,-2],
-  kamikaze:[26,0], bwchamp:[52,-1], dollaltar:[54,0], hologram:[40,1] };
+  kamikaze:[26,0], bwchamp:[52,-1], dollaltar:[54,0], hologram:[40,1], princess:[48,0] };
 const ART = {
   /* — Cavaleiro: elmo com plumas, escudo e espada — */
   knight(g,C,ph,atk){
@@ -616,6 +648,33 @@ const ART = {
     ell(g,4.4,-7.6,1.5,1.5,'#FFF0C0');
     g.restore();
     cap(g,-4,y-10,-6.6,y-6,3,C.deep);
+  },
+  /* — Princesa da Bolha: vestido, tiara e espada de bolhas — */
+  princess(g,C,ph,atk){
+    const sw=Math.sin(ph)*3, bob=Math.abs(Math.sin(ph))*1.3;
+    cap(g,-1.6,-8,-2.6-sw,-1,3.4,SKIN_D); cap(g,1.6,-8,2.6+sw,-1,3.4,SKIN_D);
+    const y=-7-bob;
+    // vestido em sino com barra dourada
+    poly(g,[[-9,y+2],[9,y+2],[4.6,y-11],[-4.6,y-11]],C.deep);
+    poly(g,[[0,y+2],[9,y+2],[4.6,y-11],[0,y-11]],shade(C.deep,.15));
+    cap(g,-9,y+1.4,9,y+1.4,2,T.gold);
+    rr(g,-4.4,y-17,8.8,7,2.4,C.main);
+    ell(g,-4.6,y-15.6,2.6,2.4,shade(C.main,.2)); ell(g,4.6,y-15.6,2.6,2.4,shade(C.main,.2));
+    // espada de bolha: cabo dourado e lâmina de bolhas
+    const sa = -0.6 + atk*2.2;
+    g.save(); g.translate(5.4,y-14); g.rotate(sa);
+    cap(g,0,0,3,5,3,SKIN);
+    cap(g,-1.6,4,5.6,4,1.8,T.gold); cap(g,2,4,2,7,1.6,T.gold);
+    for(let i=0;i<5;i++){ const r=2.8-i*.32; ell(g,2,1-i*4.6,r,r,rgba('#9FE6FF',.85)); ell(g,1.3,.3-i*4.6,r*.38,r*.38,'#F2FCFF'); }
+    glow(g,2,-8,9,'#9FE6FF',.35+atk*.4);
+    g.restore();
+    // cabeça, cabelo e tiara
+    ell(g,-1.6,y-20,5.6,6.4,'#F2C14E');
+    ell(g,.8,y-22,5,5,SKIN);
+    ell(g,-2.4,y-24.6,5,3,'#F2C14E'); cap(g,-5,y-23,-6.4,y-13,3.2,'#E2AE3A');
+    ell(g,2.8,y-21.8,1,1.2,'#141922'); ell(g,3.4,y-19.6,1.2,.7,rgba('#FF7FA0',.55));
+    poly(g,[[-3,y-26],[-2.4,y-30],[-.6,y-27.4],[1,y-31],[2.6,y-27.4],[4.4,y-30],[4.8,y-26]],T.gold);
+    ell(g,1,y-28.4,1,1,'#9FE6FF');
   },
   /* — Morcego — */
   bat(g,C,ph,atk){
@@ -1143,7 +1202,8 @@ const PROJ = {
   orb:  { speed:9*TILE,  r:6, col:null, trail:.6, arc:0, magic:true },
   fire: { speed:8.5*TILE, r:6, col:'#FF8A2E', trail:.7, arc:0, fiery:true },
   bomb: { speed:7.5*TILE, r:5.5, col:'#2E3440', trail:.25, arc:1 },
-  ball: { speed:11*TILE, r:5, col:'#3B424E', trail:.25, arc:.55 }
+  ball: { speed:11*TILE, r:5, col:'#3B424E', trail:.25, arc:.55 },
+  bubble:{ speed:6*TILE, r:9, col:'#9FE6FF', trail:.3, arc:.35 }
 };
 function shoot(from, tgt, kind, dmg, splash){
   const p = PROJ[kind], C = side[from.side];
@@ -1176,6 +1236,7 @@ function stepProjs(dt){
   }
 }
 function impact(p){
+  if(p.kind==='bubble'){ trapInBubble(p); return; }
   const C = p.side==='ally' ? T.ally : T.foe;
   if(p.splash > 0){
     const col = p.kind==='fire' ? '#FF8A2E' : p.kind==='bomb' ? '#FFB13C' : C;
@@ -1197,6 +1258,76 @@ function impact(p){
 function eachEnemyOf(sd, fn){
   for(const e of G.units) if(!e.dead && e.side!==sd) fn(e);
   for(const tw of G.towers) if(tw.alive && tw.side!==sd) fn(tw);
+}
+
+/* — Princesa da Bolha — */
+// Tropa terrestre inimiga que pode ser presa (torres, voadores e quem já está numa bolha ficam de fora).
+const bubbleable = (e, sd) => e.kind==='unit' && e.side!==sd && !e.dead && !e.air && e.deploy<=0 && !(e.bolha>0) && !e.caindo;
+// Ponto do alcance com mais tropas dentro da área (empate: a mais perto da Princesa).
+function bubbleTarget(u, b){
+  const reach=b.alcance*TILE, area=b.area*TILE;
+  const near=G.units.filter(e=>bubbleable(e,u.side) && dist(u.x,u.y,e.x,e.y) <= reach + (e.r||0));
+  let best=null, bestN=0, bestD=Infinity;
+  for(const c of near){
+    const n=near.filter(e=>dist(c.x,c.y,e.x,e.y) <= area + (e.r||0)*.5).length, d=dist(u.x,u.y,c.x,c.y);
+    if(n>bestN || n===bestN && d<bestD){ best=c; bestN=n; bestD=d; }
+  }
+  return best && {x:best.x, y:best.y};
+}
+// A cada recarga ela para, ergue a espada (`cast`) e lança a bolha. Devolve true enquanto conjura.
+function stepBubbleCaster(u, dt){
+  const b=u.card.bolha;
+  if(u.bolhaCD===undefined) u.bolhaCD=b.primeira;
+  u.bolhaCD=Math.max(0, u.bolhaCD-dt);
+  if(u.cast>0){
+    u.cast=Math.max(0, u.cast-dt); u.ph+=dt*2;
+    if(u.cast===0) launchBubble(u);
+    return true;
+  }
+  if(u.bolhaCD>0 || u.attackWindup>0) return false;
+  const at=bubbleTarget(u,b);
+  if(!at){ u.bolhaCD=.35; return false; }
+  u.cast=b.conjura; u.castAt=at; u.bolhaCD=b.recarga; u.heading=Math.atan2(at.y-u.y, at.x-u.x);
+  AU.unit(u.card.id, 'cast', 'magic', .7);
+  return true;
+}
+function launchBubble(u){
+  const at=u.castAt, P=PROJ.bubble; u.castAt=null; if(!at) return;
+  const sx=u.x, sy=u.y-u.r*1.6;
+  const pr={ x:sx, y:sy, z:0, sx, sy, kind:'bubble', dmg:0, splash:0, side:u.side, target:null, tx:at.x, ty:at.y,
+    speed:P.speed, col:P.col, r:P.r, arc:P.arc, t:0, hist:[], lift0:u.r*1.6, lift1:.01, bolha:u.card.bolha };
+  pr.dur=Math.max(.05, dist(sx,sy,pr.tx,pr.ty)/P.speed);
+  G.projs.push(pr);
+}
+function trapInBubble(p){
+  const b=p.bolha, area=b.area*TILE;
+  bubbleCast(p.x, p.y, area);
+  for(const e of G.units){
+    if(!bubbleable(e,p.side) || dist(p.x,p.y,e.x,e.y) > area + (e.r||0)*.5) continue;
+    Object.assign(e, { bolha:b.flutua, bolhaMax:b.flutua, bolhaPop:b.estouro, bolhaQueda:b.queda, bolhaDe:p.side,
+      attackWindup:0, attackTarget:null, target:null, stun:0, cast:0, castAt:null, px:0, py:0 });
+  }
+}
+// Presa na bolha: sobe e flutua sem andar nem atacar; a bolha estoura (dano) e ela cai (dano ao bater no chão).
+function stepTrapped(u, dt){
+  u.attackWindup=0; u.attackTarget=null; u.ph+=dt*1.2;
+  if(u.bolha>0){
+    u.bolha=Math.max(0, u.bolha-dt);
+    const up=Math.min(1, (u.bolhaMax-u.bolha)/.6);
+    u.z = ease(up)*92 + Math.sin(u.ph*2.2)*4*up;
+    if(u.bolha===0){
+      bubblePop(u.x, u.y, u.z); AU.sfx('pop', 1);
+      hurt(u, u.bolhaPop, u.bolhaDe);
+      u.caindo=true; u.vz=0;
+    }
+    return;
+  }
+  u.vz=(u.vz||0)-1500*dt; u.z=Math.max(0, u.z+u.vz*dt);
+  if(u.z===0){
+    u.caindo=false; u.vz=0;
+    bubbleLand(u.x, u.y, u.r); AU.sfx('punch', .45);
+    hurt(u, u.bolhaQueda, u.bolhaDe);
+  }
 }
 
 /* — Feitiços — */
@@ -1728,9 +1859,11 @@ function stepUnit(u, dt){
   u.hurt = Math.max(0, u.hurt - dt*4.5);
   u.atk = Math.max(0, u.atk - dt*3.6);
   if(u.deploy > 0){ u.deploy -= dt; if(u.deploy<=0) deployBurst(u.x,u.y,side[u.side].main); return; }
+  if(u.bolha > 0 || u.caindo){ stepTrapped(u, dt); return; }
   if(u.desenho > 0){ u.desenho -= dt; }
   if(u.stun > 0){ u.stun -= dt; u.attackWindup=0;u.attackTarget=null;u.ph += dt*2; return; }
   if(u.life){ u.life -= dt; if(u.life<=0){ kill(u); return; } }
+  if(u.card.bolha && stepBubbleCaster(u, dt)) return;
 
   if(u.attackWindup>0){
     u.attackWindup=Math.max(0,u.attackWindup-dt);
@@ -1805,9 +1938,10 @@ function stepUnit(u, dt){
 function separate(dt){
   const arr = G.units;
   for(let i=0;i<arr.length;i++){
-    const a = arr[i]; if(a.dead||a.deploy>0||a.spawnT>0) continue;
+    // quem flutua numa bolha da Princesa não esbarra em ninguém no chão
+    const a = arr[i]; if(a.dead||a.deploy>0||a.spawnT>0||a.bolha>0||a.caindo) continue;
     for(let j=i+1;j<arr.length;j++){
-      const b = arr[j]; if(b.dead||b.deploy>0||b.spawnT>0) continue;
+      const b = arr[j]; if(b.dead||b.deploy>0||b.spawnT>0||b.bolha>0||b.caindo) continue;
       if(a.air !== b.air) continue;
       const dx=b.x-a.x, dy=(b.y-a.y)*1.35, d2=dx*dx+dy*dy;
       const rr2 = (a.r+b.r); if(d2 > rr2*rr2 || d2 < .0001) continue;
@@ -2516,6 +2650,13 @@ function drawEntity(g, e, t){
       const a = t*6 + i*TAU/3;
       ell(g, Math.cos(a)*11*s, top + Math.sin(a)*3.4*s, 2.2*s, 2.2*s, '#CFF3FF');
     }
+  }
+  if(e.bolha>0){
+    // presa na bolha da Princesa
+    const R = (e.r*1.5 + 10)*s, cy = -R*.8;
+    g.fillStyle = rgba('#9FE6FF', .22); g.beginPath(); g.arc(0, cy, R, 0, TAU); g.fill();
+    g.strokeStyle = rgba('#E6FAFF', .8); g.lineWidth = 1.6*s; g.stroke();
+    ell(g, -R*.4, cy-R*.45, R*.22, R*.12, rgba('#FFFFFF', .7), -.5);
   }
   g.restore();
   g.globalAlpha=1;
@@ -3247,12 +3388,20 @@ function buildPool(){
     const locked=!PROGRESS.allowed(c.id);b.classList.toggle('champLocked',locked);b.disabled=locked;
     b.innerHTML = `<canvas></canvas><div class="nm">${c.nome}</div><div class="rl">${c.papel}</div>
                    <div class="cost mono">${c.custo}</div><div class="chk">✓</div>` +
-                  (c.campeao ? '<div class="cbadge">'+(locked?'🔒 Bloqueado':'Campeão')+'</div>' : '');
+                  (c.campeao ? '<div class="cbadge">'+(locked?'🔒 Bloqueado':'Campeão')+'</div>' : '') +
+                  (c.nova ? '<div class="nova">Nova!</div>' : '');
         pool.appendChild(b);
     b.addEventListener('click', ()=>{
       AU.init(); AU.sfx('ui');
-      /* Baralho fixo de 8 cartas: não há outras cartas para trocar. */
-      b.animate([{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'none'}],140);
+      // Toque marca ou desmarca. Com 8 marcadas, é preciso tirar uma antes de pôr outra.
+      if(deckSel.includes(c.id)) deckSel = deckSel.filter(id=>id!==c.id);
+      else if(deckSel.length < 8) deckSel = [...deckSel, c.id];
+      else {
+        b.animate([{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'none'}],140);
+        $('startHint').textContent = 'Baralho cheio: toque numa carta marcada para tirar';
+        return;
+      }
+      syncDeck();
     });
   }
   requestAnimationFrame(()=>{
@@ -3269,7 +3418,7 @@ function syncDeck(){
   $('onlineBtn').disabled = n!==8||!eligible;
   showDeckPreview();
   if(PROGRESS.loaded)PROGRESS.changed?.();
-  $('startHint').textContent = n===8 ? 'Pronto' : `Faltam ${8-n}`;
+  $('startHint').textContent = n===8 ? 'Pronto' : n===7 ? 'Falta 1 carta no baralho' : `Faltam ${8-n} cartas no baralho`;
   try { localStorage.setItem(LS, JSON.stringify(deckSel)); } catch(e){}
   for(const ch of document.querySelectorAll('[data-preset]')) ch.classList.remove('on');
 }
