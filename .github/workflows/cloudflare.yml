@@ -33,7 +33,7 @@ jobs:
       - name: Testes
         working-directory: web
         run: |
-          for t in online account progress email-client connection combat cloudflare; do node tests/$t.test.mjs; done
+          for t in online account progress email-client connection combat cloudflare live; do node tests/$t.test.mjs; done
           node node_modules/typescript/bin/tsc --noEmit
       - name: Montar o servidor e simular o deploy
         working-directory: web

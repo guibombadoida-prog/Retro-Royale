@@ -77,6 +77,49 @@ export class Parts {
 }
 function member(parent,name,x,y,z,parts){const group=new T.Group();group.name=name;group.position.set(x,y,z);group.add(parts.finish());parent.add(group);return group;}
 
+/* ── Rig com ossos: cada tropa (e torre) vira uma malha só por material ──────────────────────
+   As peças continuam nos mesmos grupos do rig (leftLeg, head, prop, turret...), que passam a ser os
+   ossos de uma SkinnedMesh. O animation.js mexe nos mesmos grupos, mas o celular desenha a tropa
+   inteira em 2 ou 3 chamadas (toon, contorno, brilho) em vez de uma por peça. Sem WebGL (LOW) fica
+   como antes, porque o renderizador por CPU não anima ossos. */
+const RIG_BONES=['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop','turret'];
+const skins=new WeakMap(),toRoot=new T.Matrix4();
+function bakeRig(root){
+ if(LOW)return root;
+ root.updateMatrixWorld(true);const inverse=root.matrixWorld.clone().invert();
+ const bones=[root];root.traverse(o=>{if(o!==root&&RIG_BONES.includes(o.name))bones.push(o);});
+ const lists={toon:[],outline:[],glow:[]},meshes=[];
+ root.traverse(o=>{
+  if(!o.isMesh)return;meshes.push(o);
+  let b=o.parent,bone=-1;while(b&&(bone=bones.indexOf(b))<0)b=b.parent;
+  const g=o.geometry.clone();g.applyMatrix4(toRoot.multiplyMatrices(inverse,o.matrixWorld));
+  const n=g.attributes.position.count,index=new Uint16Array(n*4),weight=new Float32Array(n*4);
+  for(let i=0;i<n;i++){index[i*4]=Math.max(0,bone);weight[i*4]=1;}
+  g.setAttribute('skinIndex',new T.Uint16BufferAttribute(index,4));g.setAttribute('skinWeight',new T.Float32BufferAttribute(weight,4));
+  lists[o.userData.outline?'outline':o.material===materials.glow?'glow':'toon'].push(g);
+ });
+ for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
+ const skeleton=new T.Skeleton(bones);
+ for(const [kind,list] of Object.entries(lists)){
+  if(!list.length)continue;
+  const m=new T.SkinnedMesh(mergeGeometries(list,false),materials[kind]);for(const g of list)g.dispose();
+  // Sempre visível: a esfera de recorte de uma malha com ossos não acompanha a pose.
+  m.frustumCulled=false;if(kind==='toon'){m.castShadow=true;m.receiveShadow=true;}if(kind==='outline')m.userData.outline=true;
+  root.add(m);m.bind(skeleton);
+ }
+ skins.set(root,{names:bones.map((b,i)=>i?b.name:''),inverses:skeleton.boneInverses});
+ return root;
+}
+// Cópia de um modelo do cache com o próprio esqueleto (clone() deixaria os ossos do original).
+function cloneModel(source){
+ const copy=source.clone(true),skin=skins.get(source);if(!skin)return copy;
+ const skeleton=new T.Skeleton(skin.names.map(n=>n?copy.getObjectByName(n):copy),skin.inverses);
+ copy.traverse(o=>{if(o.isSkinnedMesh)o.bind(skeleton,o.bindMatrix);});
+ return copy;
+}
+// Libera a textura de ossos de um modelo que saiu de cena (a geometria é do cache e continua).
+export function releaseModel(model){model.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});}
+
 /* ── Peças de rosto e acessórios ───────────────────────────────────────────────────────────── */
 // Olho cartoon: oval escuro com brilho branco. (cx,cy,cz) e R são o centro e o raio da cabeça.
 function eyes(p,cx,cy,cz,R,{spread=.37,lift=.05,size=.15,color=palette.ink,brow=null,angry=0,lash=false}={}){
@@ -262,8 +305,8 @@ function bat(t){
 
 export function unitModel(art,side){
  const key=art+side;
- if(!cache.has(key)){const make=art==='bat'?bat:builders[art];cache.set(key,make?make(side):builders.knight(side));}
- return cache.get(key).clone(true);
+ if(!cache.has(key)){const make=art==='bat'?bat:builders[art];cache.set(key,bakeRig(make?make(side):builders.knight(side)));}
+ return cloneModel(cache.get(key));
 }
 
 /* ── Torres ─────────────────────────────────────────────────────────────────────────────────── */
@@ -303,7 +346,7 @@ export function towerModel(side,king=false){
   });
  }
  member(root,'turret',0,h+.38,0,tr);
- root.userData.height=h+(king?2.1:1.25);return root;
+ root.userData.height=h+(king?2.1:1.25);return bakeRig(root);
 }
 /* ── Projéteis (apontam para +z; o arena3d gira na direção do voo) ─────────────────────────── */
 export function projectileModel(kind,side){

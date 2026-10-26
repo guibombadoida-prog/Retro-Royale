@@ -45,6 +45,12 @@ Legenda: **[verificado]** foi testado numa auditoria; **[não verificado]** é p
 
 **Feito em 26/10/2026 (estilo escolhido pelo dono: cartoon arredondado):** as 6 tropas, as duas torres, a ruína, os projéteis, a arena (grama, rio, pontes, muro e entorno), as animações (andar, respirar, ataque por estilo, dano, tontura, entrada caindo do céu, morte) e os efeitos (Bólide, Estalo, poeira, puff, estrelas, torre caindo) foram refeitos em código, sem arquivos externos. Os ícones das cartas viraram retratos do próprio modelo 3D. [verificado] testes, fotos com WebGL e sem WebGL. [não verificado] desempenho num celular de verdade (o teste usa GPU emulada); se pesar, o modo leve tira sombra e contorno.
 
+**Feito em 26/10/2026 (o dono relatou travamento e ping alto no online):**
+- 3D mais leve: tropas e torres com ossos numa malha só (2 ou 3 chamadas cada), sombra das tropas redonda e instanciada, mapa de sombra estático, qualidade automática (resolução, sombra, contorno) e no máximo 60 quadros desenhados por segundo. Batalha com 24 tropas: de ~490 para ~85 chamadas de desenho por quadro.
+- Online: pacote de estado de ~50 KB para ~5 KB (só os campos usados; efeitos repetidos no convidado em vez de mandar partículas), sem fila quando a rede atrasa, e a **sala ao vivo** (WebSocket num Durable Object por sala) quando o WebRTC não abre. [verificado] dois navegadores locais com `wrangler dev`, com e sem WebRTC. [não verificado] ping real entre dois celulares no servidor publicado.
+- [ ] Pedir ao dono o selo da partida (DIRETO / AO VIVO / ONLINE e o ping) depois de jogar no celular.
+- [ ] Se ainda houver muita sala em ONLINE (sem WebRTC nem sala ao vivo), juntar as consultas do `sync` em `app/api/room/route.ts` num `db.batch` (hoje são ~8 idas ao D1, que fica longe do Brasil).
+
 Se o dono ainda quiser trazer modelos do Roblox (R6 com textura e animação em CFrame), o plano abaixo continua valendo; o modelo novo só precisa expor as mesmas partes e o `userData.style`. **[não verificado]**:
 
 ### 3.1 Receber os assets

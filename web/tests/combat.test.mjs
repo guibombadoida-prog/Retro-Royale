@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {unitModel,towerModel,projectileModel,rubbleModel,setLowDetail} from '../src/game/models3d.js';
 import {animateRig,animateDeath} from '../src/game/animation.js';
+import {Vector3} from 'three';
 const gradient={addColorStop(){}};
 const canvas=new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient,measureText:()=>({width:10})},{get(o,k){return k in o?o[k]:(()=>{});}});
 class El{
@@ -57,13 +58,23 @@ for(const art of ['knight','archer','goblin','giant','bomber','bat']){
  assert.ok(model.userData.style&&model.userData.height>.5);
  // Orçamento do celular: cada tropa (sem o contorno) fica abaixo de 4.500 triângulos.
  assert.ok(triangles(model)<4500,art+' tem '+triangles(model)+' triângulos');
+ // Uma malha por material (toon, contorno, brilho) com os grupos do rig como ossos: 2 a 3 chamadas por tropa.
+ const meshes=[];model.traverse(c=>{if(c.isMesh)meshes.push(c);});
+ assert.ok(meshes.length<=3&&meshes.every(c=>c.isSkinnedMesh),art+' tem '+meshes.length+' malhas');
+ const limb=rig.leftArm||rig.leftWing,skin=meshes[0],bone=skin.skeleton.bones.indexOf(limb);
+ assert.ok(bone>0&&meshes.every(c=>c.skeleton===skin.skeleton),art+': o membro é um osso do próprio modelo');
+ let vertex=0;while(skin.geometry.attributes.skinIndex.getX(vertex)!==bone)vertex++;
+ const pose=()=>{model.updateMatrixWorld(true);skin.skeleton.update();return skin.getVertexPosition(vertex,new Vector3());};
+ const rest=pose();limb.rotation.x+=1;assert.ok(pose().distanceTo(rest)>.01,art+': girar o osso move a malha');limb.rotation.x-=1;
  const n={model,rig,oldX:0,oldY:0,angle:0},e={id:1,x:1,y:1,heading:.3,ph:2,moving:true,card:{art,deploy:1,proj:art==='archer'},attackWindup:.1,attackPrep:.18,atk:0,hurt:.7,deploy:.8,air:art==='bat',stun:0};
  const phases=[{attackWindup:.12},{attackWindup:0,atk:1},{atk:.4,moving:false},{stun:.5,atk:0},{stun:0,deploy:0,hurt:0}];
  for(const phase of phases){Object.assign(e,phase);for(let i=0;i<12;i++)animateRig(n,e,i/60,1/60);finite(model);}
  if(rig.prop){e.atk=1;animateRig(n,e,1,1/60);assert.ok(rig.prop.scale.x<.01,'a bomba some ao ser lançada');}
  for(let i=0;i<30;i++)animateDeath(n,1/60);assert.ok(n.deathTime>.42);assert.ok(Math.abs(model.rotation.z)>1);finite(model);
 }
-for(const side of ['ally','foe'])for(const king of [true,false]){const model=towerModel(side,king);assert.ok(model.getObjectByName('turret'));assert.ok(triangles(model)<7500);}
+for(const side of ['ally','foe'])for(const king of [true,false]){const model=towerModel(side,king);assert.ok(model.getObjectByName('turret'));assert.ok(triangles(model)<7500);let meshes=0;model.traverse(c=>{if(c.isMesh)meshes++;});assert.ok(meshes<=3);}
+// Duas tropas iguais não dividem esqueleto (cada uma anima sozinha).
+{const a=unitModel('knight','ally'),b=unitModel('knight','ally'),bones=m=>{let s;m.traverse(c=>{if(c.isSkinnedMesh)s=c.skeleton;});return s.bones;};assert.ok(bones(a).every(x=>!bones(b).includes(x)));assert.equal(bones(a)[0],a);}
 for(const kind of ['arrow','bolt','bomb'])assert.ok(triangles(projectileModel(kind,'foe'))>0);
 assert.ok(triangles(rubbleModel(true))>0);
 // Sem WebGL (CPU) os modelos são mais simples e não têm contorno.

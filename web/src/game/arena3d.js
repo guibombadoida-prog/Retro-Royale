@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { Software3DRenderer } from './software3d.js';
 import { animateRig, animateDeath } from './animation.js';
-import { Parts, palette, materials, unitModel, towerModel, rubbleModel, projectileModel, setLowDetail } from './models3d.js';
+import { Parts, palette, materials, unitModel, towerModel, rubbleModel, projectileModel, setLowDetail, releaseModel } from './models3d.js';
 const TILE=64,TAU=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const mix=(a,b,t)=>a+(b-a)*t;
@@ -54,6 +54,32 @@ class ModelPool{
  reset(){for(const [key,o] of this.used){o.visible=false;this.free.get(key).push(o);}this.used.length=0;}
  get(key){if(!this.free.has(key))this.free.set(key,[]);let o=this.free.get(key).pop();if(!o){o=this.make(key);this.scene.add(o);}o.visible=true;this.used.push([key,o]);return o;}
 }
+// Marcas no chão de todas as tropas (anel do time e sombra redonda) numa chamada de desenho só.
+// No modo sem WebGL vira um Pool comum, porque o renderizador por CPU não conhece instâncias.
+class Marks{
+ constructor(scene,geometry,{map=null,opacity=1,software=false,max=200}={}){
+  this.software=software;this.opacity=opacity;
+  if(software){this.pool=new Pool(scene,geometry,{map});return;}
+  this.mesh=new T.InstancedMesh(geometry,new T.MeshBasicMaterial({color:0xffffff,map,transparent:true,opacity,depthWrite:false}),max);
+  this.mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);this.mesh.setColorAt(0,color.set('#ffffff'));this.mesh.instanceColor.setUsage(T.DynamicDrawUsage);
+  this.mesh.count=0;this.mesh.frustumCulled=false;this.mesh.renderOrder=-5;this.max=max;this.n=0;scene.add(this.mesh);
+ }
+ reset(){if(this.software)this.pool.reset();else this.n=0;}
+ add(x,y,z,s,c){
+  if(this.software){const m=this.pool.get(c,this.opacity);m.position.set(x,y,z);m.scale.set(s,1,s);return;}
+  if(this.n>=this.max)return;matrix.makeScale(s,1,s).setPosition(x,y,z);this.mesh.setMatrixAt(this.n,matrix);this.mesh.setColorAt(this.n,color.set(c));this.n++;
+ }
+ finish(){if(this.software){this.pool.finish();return;}this.mesh.count=this.n;this.mesh.instanceMatrix.needsUpdate=true;this.mesh.instanceColor.needsUpdate=true;}
+}
+// Qualidade automática: mede o tempo real entre quadros e ajusta resolução, sombra e contorno.
+// Começa um degrau abaixo no celular; cai quando o quadro passa de ~24 ms e nunca volta a um degrau que já pesou.
+const LEVELS=[
+ {pr:.75,shadow:false,outline:false},
+ {pr:1,shadow:false,outline:false},
+ {pr:1,shadow:true,outline:true},
+ {pr:1.25,shadow:true,outline:true},
+ {pr:1.5,shadow:true,outline:true}
+];
 // Gradiente radial (centro forte, borda transparente) para marcas no chão e brilhos.
 let softTexture=null;
 function soft(){
@@ -81,12 +107,16 @@ export class Arena3D{
   }catch(e){onError(e);return;}
   setLowDetail(this.software);
   this.renderer.setClearColor('#79c246');this.renderer.outputColorSpace=T.SRGBColorSpace;this.renderer.toneMapping=T.NeutralToneMapping;this.renderer.toneMappingExposure=1.08;
-  this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;
+  // Sombra só do que não anda (arena e torres): o mapa é desenhado uma vez e refeito quando uma torre
+  // muda. As tropas usam a sombra redonda das Marks, que custa uma chamada para todas.
+  this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFShadowMap;this.renderer.shadowMap.autoUpdate=false;this.renderer.shadowMap.needsUpdate=true;
+  const coarse=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
+  this.level=coarse?3:4;this.ceiling=4;this.avg=0;this.slow=0;this.fast=0;this.settle=2.5;
   this.scene=new T.Scene();this.scene.background=new T.Color('#79c246');this.scene.fog=new T.Fog('#79c246',70,130);this.scene.scale.z=1.25;
   this.camera=new T.PerspectiveCamera(29,1,.1,150);this.target=new T.Vector3(0,.6,0);
   this.scene.add(this.software?new T.AmbientLight(0xffffff,.55):new T.HemisphereLight(0xffffff,0x7aa05a,1.55));
   this.sun=new T.DirectionalLight(0xfff0d8,2.5);this.sun.position.set(-10,22,10);this.sun.castShadow=true;
-  this.sun.shadow.mapSize.set(2048,2048);Object.assign(this.sun.shadow.camera,{left:-22,right:22,top:25,bottom:-25,near:1,far:65});this.sun.shadow.bias=-.0004;this.sun.shadow.normalBias=.05;if(this.software)this.sun.intensity=.7;this.scene.add(this.sun);
+  this.sun.shadow.mapSize.set(1024,1024);Object.assign(this.sun.shadow.camera,{left:-22,right:22,top:25,bottom:-25,near:1,far:65});this.sun.shadow.bias=-.0004;this.sun.shadow.normalBias=.05;if(this.software)this.sun.intensity=.7;this.scene.add(this.sun);
   const fill=new T.DirectionalLight(0xbfe0ff,this.software?.18:.55);fill.position.set(12,9,-13);this.scene.add(fill);
   this.makeArena();for(const o of this.scene.children)if(!o.isLight)o.userData.environment=true;
   this.raycaster=new T.Raycaster();this.plane=new T.Plane(up,0);this.pointer=new T.Vector2();
@@ -107,7 +137,8 @@ export class Arena3D{
   this.deployRing=new T.Mesh(flat(new T.RingGeometry(.9,1,48)),new T.MeshBasicMaterial({color:palette.ally,side:T.DoubleSide,transparent:true,opacity:.85,depthWrite:false}));this.deployRing.visible=false;this.scene.add(this.deployRing);
   this.zone=new T.Mesh(new T.PlaneGeometry(18,12),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.12,depthWrite:false}));this.zone.rotation.x=-Math.PI/2;this.zone.position.set(0,.06,7);this.zone.visible=false;this.scene.add(this.zone);
   this.ghostMat=new T.MeshBasicMaterial({color:0x7eeed8,transparent:true,opacity:.4,depthWrite:false});
-  this.footGeo=flat(new T.RingGeometry(.74,1,40));
+  this.feet=new Marks(this.scene,flat(new T.RingGeometry(.74,1,40)),{opacity:.6,software:this.software});
+  this.blobs=this.software?null:new Marks(this.scene,flat(new T.CircleGeometry(1,20)),{map,opacity:.3});
   this.installControls();this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(stage);
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.ready=false;onError(new Error('Contexto 3D interrompido'));});canvas.addEventListener('webglcontextrestored',()=>location.reload());
   this.ready=true;this.resize();onReady(this.software?'software-3d':'webgl-3d');
@@ -191,7 +222,7 @@ export class Arena3D{
   this.input.addEventListener('pointerup',e=>{if(e.button===2)drag=null;});this.input.addEventListener('pointercancel',()=>drag=null);
  }
  cycleView(){this.mode=(this.mode+1)%3;const p=[[0,.30],[.36,.76],[-.55,.94]][this.mode];this.yaw=p[0];this.polar=p[1];this.fitCamera();return ['Tática','Perspectiva','Lateral'][this.mode];}
- resize(){if(!this.renderer)return;this.w=this.stage.clientWidth;this.h=this.stage.clientHeight;if(!this.w||!this.h)return;this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,this.low?1:1.5));this.renderer.setSize(this.w,this.h,false);this.camera.aspect=this.w/this.h;this.camera.updateProjectionMatrix();this.fitCamera();}
+ resize(){if(!this.renderer)return;this.w=this.stage.clientWidth;this.h=this.stage.clientHeight;if(!this.w||!this.h)return;this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,LEVELS[this.level].pr));this.renderer.setSize(this.w,this.h,false);this.camera.aspect=this.w/this.h;this.camera.updateProjectionMatrix();this.fitCamera();}
  fitCamera(){if(!this.w||!this.h)return;
   const yaw=this.w<500?this.yaw*.5:this.yaw;
   const direction=new T.Vector3(Math.sin(yaw)*Math.sin(this.polar),Math.cos(this.polar),Math.cos(yaw)*Math.sin(this.polar));
@@ -210,19 +241,22 @@ export class Arena3D{
  /* ── Tropas e torres ───────────────────────────────────────────────────────────────────── */
  addEntity(key,e){
   const isTower=e.kind==='tower',model=isTower?towerModel(e.side,e.king):unitModel(e.card.art,e.side);this.scene.add(model);
-  const foot=new T.Mesh(this.footGeo,new T.MeshBasicMaterial({color:palette[e.side],transparent:true,opacity:isTower?0:.6,depthWrite:false}));this.scene.add(foot);
-  const bar=this.label(key,model,e);const entry={model,foot,bar,oldX:e.x,oldY:e.y,angle:e.side==='ally'?Math.PI:0,rig:{},landed:!(e.deploy>0),alive:e.alive!==false};
+  // Tropa não entra no mapa de sombra (ele é estático); a sombra dela é a redonda das Marks.
+  if(!isTower)model.traverse(o=>{o.castShadow=false;});else this.renderer.shadowMap.needsUpdate=true;
+  const bar=this.label(key,model,e);const entry={model,bar,oldX:e.x,oldY:e.y,angle:e.side==='ally'?Math.PI:0,rig:{},landed:!(e.deploy>0),alive:e.alive!==false};
   for(const name of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop','turret'])entry.rig[name]=model.getObjectByName(name);
   if(isTower){entry.turretY=entry.rig.turret?.position.y||0;entry.ruin=rubbleModel(e.king);entry.ruin.visible=false;entry.ruin.position.copy(world(e.x,e.y));this.scene.add(entry.ruin);}
   this.entities.set(key,entry);return entry;
  }
  updateEntities(G,time,dt){const seen=new Set(),battle=['battle','over'].includes(G.state);
+  this.feet.reset();this.blobs?.reset();
   for(const e of [...G.towers,...G.units]){
    if(e.dead)continue;const tower=e.kind==='tower',key=tower?'t:'+e.side+':'+e.lane+':'+e.king:'u:'+e.id+':'+e.card.id+':'+e.side;seen.add(key);const n=this.entities.get(key)||this.addEntity(key,e),m=n.model;
    if(tower&&!e.alive){
-    if(n.alive&&battle)this.burst(e.x,e.y,e.king?1.6:1.25,true);n.alive=false;
-    m.visible=false;n.ruin.visible=true;n.bar.el.hidden=true;n.foot.visible=false;continue;
+    if(n.alive){if(battle)this.burst(e.x,e.y,e.king?1.6:1.25,true);this.renderer.shadowMap.needsUpdate=true;}n.alive=false;
+    m.visible=false;n.ruin.visible=true;n.bar.el.hidden=true;continue;
    }
+   if(!n.alive)this.renderer.shadowMap.needsUpdate=true;
    n.alive=true;m.visible=true;if(n.ruin)n.ruin.visible=false;
    const lift=tower?0:Math.max(0,(e.z||0)/64)+(e.air?.55:0);
    m.position.copy(world(e.x,e.y));m.position.y+=lift;
@@ -233,17 +267,19 @@ export class Arena3D{
     if(!n.landed&&spawn>=.3&&!e.air){n.landed=true;this.dust(e.x,e.y,(e.r||24)/64);}else if(spawn>=.3)n.landed=true;
     if(e.stun>0)this.stunStars(m,time,e.id);
    }else if(n.rig.turret){n.rig.turret.rotation.y=Math.PI/2-(e.aim||0);const k=e.recoil||0;n.rig.turret.position.set(Math.cos(e.aim||0)*-k*.16,n.turretY,Math.sin(e.aim||0)*-k*.16);}
-   n.oldX=e.x;n.oldY=e.y;n.foot.position.set(m.position.x-0,.05,m.position.z);const r=tower?0:(e.r||24)/64;n.foot.scale.setScalar(r*1.6);n.foot.visible=!tower&&!e.air;
+   n.oldX=e.x;n.oldY=e.y;
+   if(!tower){const r=(e.r||24)/64;if(!e.air)this.feet.add(m.position.x,.05,m.position.z,r*1.6,palette[e.side]);this.blobs?.add(m.position.x,.035,m.position.z,r*(e.air?1.1:1.5),'#1d3812');}
    const show=tower||e.hp<e.maxHp;n.bar.el.hidden=!show;
    if(show){m.getWorldPosition(v3);v3.y+=(m.userData.height||2.5)+.17;v3.project(this.camera);n.bar.el.style.transform=`translate(${(v3.x*.5+.5)*this.w}px,${(-v3.y*.5+.5)*this.h}px) translate(-50%,-100%)`;const value=Math.ceil(Math.max(0,e.hp));if(n.bar.value!==value){n.bar.value=value;n.bar.text.textContent=tower?value:'';n.bar.fill.style.transform=`scaleX(${clamp(e.hp/e.maxHp,0,1)})`;n.bar.fill.style.background=palette[e.side];}n.bar.el.hidden=Math.abs(v3.x)>1||Math.abs(v3.y)>1;}
   }
   for(const [key,n] of this.entities)if(!seen.has(key)){
-   n.bar.el.hidden=true;n.foot.visible=false;
+   n.bar.el.hidden=true;
    if(key.startsWith('u:')&&battle){if(!animateDeath(n,dt))continue;const p=n.model.position;this.poof((p.x+9)*TILE,(p.z+13)*TILE,p.y,n.model.userData.height||1.6);}
-   this.scene.remove(n.model,n.foot);n.foot.material.dispose();
+   this.scene.remove(n.model);releaseModel(n.model);
    // Torres são montadas na hora (não vêm do cache): libera a geometria delas.
-   if(n.ruin){this.scene.remove(n.ruin);for(const o of [n.model,n.ruin])o.traverse(c=>{if(c.isMesh)c.geometry.dispose();});}n.bar.el.remove();this.entities.delete(key);
+   if(n.ruin){this.scene.remove(n.ruin);for(const o of [n.model,n.ruin])o.traverse(c=>{if(c.isMesh)c.geometry.dispose();});this.renderer.shadowMap.needsUpdate=true;}n.bar.el.remove();this.entities.delete(key);
   }
+  this.feet.finish();this.blobs?.finish();
  }
 
  /* ── Efeitos 3D próprios (puff de morte, poeira, estilhaços, clarão) ───────────────────── */
@@ -319,13 +355,33 @@ export class Arena3D{
   this.particles.update(FX.parts,this.h,this.renderer.getPixelRatio(),quality);this.smoke.update(FX.parts,this.h,this.renderer.getPixelRatio(),quality);
   for(const p of this.poolList)p.finish();
  }
+ // Aplica o degrau de qualidade atual: resolução, sombra das torres e contorno.
+ applyLevel(){
+  const L=LEVELS[this.level],shadow=L.shadow&&!this.software;
+  if(this.renderer.shadowMap.enabled!==shadow){
+   this.renderer.shadowMap.enabled=shadow;this.renderer.shadowMap.needsUpdate=true;
+   // Os materiais recompilam com (ou sem) a leitura da sombra.
+   const list=new Set([materials.toon,materials.outline,materials.glow]);this.scene.traverse(o=>{if(o.material)list.add(o.material);});for(const m of list)m.needsUpdate=true;
+  }
+  materials.outline.visible=L.outline&&!this.software;this.resize();
+ }
+ // Mede o tempo entre quadros desenhados: cai um degrau depois de 1,5 s abaixo de ~42 quadros por segundo
+ // e sobe um depois de 10 s folgado, sem voltar a um degrau que já pesou. O modo leve limita ao degrau 1.
+ tune(time,light){
+  if(light!==this.low){this.low=light;this.level=light?Math.min(this.level,1):Math.min(this.ceiling,3);this.settle=2;this.applyLevel();}
+  const gap=time-(this.tuneAt||time);this.tuneAt=time;
+  if(this.software||gap<=0||gap>.25)return;
+  this.avg=this.avg?this.avg*.9+gap*.1:gap;
+  if((this.settle-=gap)>0)return;
+  const top=light?Math.min(1,this.ceiling):this.ceiling;
+  if(this.avg>.024){this.fast=0;if((this.slow+=gap)>1.5&&this.level>0){this.ceiling=this.level-1;this.level--;this.slow=0;this.settle=2;this.applyLevel();}}
+  else if(this.avg<.0185&&this.level<top){this.slow=0;if((this.fast+=gap)>10){this.level++;this.fast=0;this.settle=2;this.applyLevel();}}
+  else{this.slow=Math.max(0,this.slow-gap);this.fast=0;}
+ }
  render({G,FX,UI,CARD,PREF,QUALITY},time){if(!this.ready)return;
   if(this.software&&this.last&&time-this.last<1/30)return;
   const dt=Math.min(.1,time-(this.last||time));this.last=time;
-  if(this.low!==PREF.light){this.low=PREF.light;this.renderer.shadowMap.enabled=!this.low;this.resize();}
-  // Contorno some no modo leve e quando o jogo detecta quadros atrasados (QUALITY baixo).
-  const outlines=!this.low&&!this.software&&QUALITY>.45;
-  if(this.outlines!==outlines){this.outlines=outlines;materials.outline.visible=outlines;}
+  this.tune(time,!!PREF.light);
   if(this.cameraBase){this.camera.position.copy(this.cameraBase);if(PREF.fx&&FX.shake>.5){this.camera.position.x+=Math.sin(time*49)*FX.shake*.004;this.camera.position.y+=Math.cos(time*43)*FX.shake*.003;}this.camera.lookAt(this.target);this.camera.updateMatrixWorld();}
   this.waterMat.uniforms.time.value=time;
   for(const p of this.poolList)p.reset();
@@ -334,7 +390,7 @@ export class Arena3D{
   if(this.ghost)this.ghost.visible=false;
   if(show){const card=CARD[UI.holding.id],r=card.feitico?.raio||Math.max(.65,card.raio||.5);this.deployRing.position.set(UI.wx/64-9,.08,UI.wy/64-13);this.deployRing.scale.setScalar(r);this.deployRing.material.color.set(UI.valid?'#b0ffe0':'#ff7065');
    if(card.tipo!=='feitico'){
-    if(this.ghostId!==card.id){if(this.ghost)this.scene.remove(this.ghost);this.ghost=unitModel(card.art,'ally');this.ghost.traverse(o=>{if(o.userData.outline)o.visible=false;else if(o.isMesh)o.material=this.ghostMat;});this.scene.add(this.ghost);this.ghostId=card.id;}
+    if(this.ghostId!==card.id){if(this.ghost){this.scene.remove(this.ghost);releaseModel(this.ghost);}this.ghost=unitModel(card.art,'ally');this.ghost.traverse(o=>{o.castShadow=false;if(o.userData.outline)o.visible=false;else if(o.isMesh)o.material=this.ghostMat;});this.scene.add(this.ghost);this.ghostId=card.id;}
     this.ghost.visible=true;this.ghost.position.copy(world(UI.wx,UI.wy));if(card.ar)this.ghost.position.y+=.55;this.ghost.rotation.y=Math.PI;this.ghostMat.color.set(UI.valid?'#9cf5d8':'#ff7770');
    }
   }
@@ -370,7 +426,7 @@ function cardPortrait(art,side='ally'){
   camera.position.set(center.x,center.y+size.y*.12,center.z+dist);camera.lookAt(center.x,center.y-size.y*.02,center.z);
   renderer.render(scene,camera);
   out=document.createElement('canvas');out.width=220;out.height=240;out.getContext('2d').drawImage(renderer.domElement,0,0);
-  scene.remove(model);
+  scene.remove(model);releaseModel(model);
  }catch{out=null;}
  portraits.set(key,out);return out;
 }
