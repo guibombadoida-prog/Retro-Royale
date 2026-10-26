@@ -30,7 +30,7 @@ node node_modules/typescript/bin/tsc --noEmit
 
 The Node tests cover actual API routes on SQLite with the generated migrations, all team capacities, readiness, server-side rejection of removed cards, command deduplication, combat ownership, independent elixir, coordinate mirroring, delayed attack damage and all 3D rigs. They do not replace visual browser QA or testing on a physical Android device.
 
-Also `node tests/cloudflare.test.mjs` (deploy helper, mocked Cloudflare API) and `node tests/live.test.mjs` (live room: token check, relay routing, size/rate limits, reconnect).
+Also `node tests/gmail.test.mjs` (login codes over Gmail SMTP against a fake server), `node tests/cloudflare.test.mjs` (deploy helper, mocked Cloudflare API) and `node tests/live.test.mjs` (live room: token check, relay routing, size/rate limits, reconnect).
 
 ## Online server (Cloudflare)
 
@@ -43,7 +43,7 @@ One-time setup:
 3. In GitHub **Settings → Secrets and variables → Actions**, add the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 4. Run the **Servidor na Cloudflare** workflow (it also runs on every push to `main` that touches `web/`).
 
-Optional: the secrets `RESEND_API_KEY` and `LOGIN_EMAIL_FROM` enable email login (`docs/EMAIL_LOGIN.md`), and a repository variable `ONLINE_URL` replaces the workers.dev address with a custom domain.
+Optional: the secrets `GMAIL_USER` and `GMAIL_APP_PASSWORD` (the game's Gmail account with a Google app password, sent over SMTP from the Worker) or `RESEND_API_KEY` and `LOGIN_EMAIL_FROM` enable email login (`docs/EMAIL_LOGIN.md`), and a repository variable `ONLINE_URL` replaces the workers.dev address with a custom domain.
 
 Local server on the Workers runtime, from `web/`: `pnpm build && pnpm db:migrate:local && pnpm start` (http://127.0.0.1:8787).
 

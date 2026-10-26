@@ -33,7 +33,7 @@ jobs:
       - name: Testes
         working-directory: web
         run: |
-          for t in online account progress email-client connection combat cloudflare live; do node tests/$t.test.mjs; done
+          for t in online account progress email-client connection combat cloudflare live gmail; do node tests/$t.test.mjs; done
           node node_modules/typescript/bin/tsc --noEmit
       - name: Montar o servidor e simular o deploy
         working-directory: web
@@ -90,15 +90,22 @@ jobs:
       - name: Publicar o Worker
         working-directory: web
         env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           LOGIN_EMAIL_FROM: ${{ secrets.LOGIN_EMAIL_FROM }}
         run: |
-          # Login por e-mail é opcional: só envia os segredos do Resend se os dois existirem no GitHub.
+          # Login por e-mail é opcional. Envia ao Worker só os pares completos que existirem no GitHub:
+          # Gmail do jogo (GMAIL_USER + GMAIL_APP_PASSWORD) e/ou Resend (RESEND_API_KEY + LOGIN_EMAIL_FROM).
+          node -e '
+            const e=process.env,out={};
+            for(const pair of [["GMAIL_USER","GMAIL_APP_PASSWORD"],["RESEND_API_KEY","LOGIN_EMAIL_FROM"]])
+              if(pair.every(k=>(e[k]||"").trim()))for(const k of pair)out[k]=e[k].trim();
+            if(Object.keys(out).length)require("fs").writeFileSync(process.argv[1],JSON.stringify(out));
+            console.log("Segredos de login enviados:",Object.keys(out).join(", ")||"nenhum (login por e-mail fica \"em breve\")");
+          ' "$RUNNER_TEMP/segredos.json"
           extra=()
-          if [ -n "$RESEND_API_KEY" ] && [ -n "$LOGIN_EMAIL_FROM" ]; then
-            node -e 'require("fs").writeFileSync(process.argv[1],JSON.stringify({RESEND_API_KEY:process.env.RESEND_API_KEY,LOGIN_EMAIL_FROM:process.env.LOGIN_EMAIL_FROM}))' "$RUNNER_TEMP/segredos.json"
-            extra=(--secrets-file "$RUNNER_TEMP/segredos.json")
-          fi
+          if [ -f "$RUNNER_TEMP/segredos.json" ]; then extra=(--secrets-file "$RUNNER_TEMP/segredos.json"); fi
           pnpm exec wrangler deploy "${extra[@]}"
           rm -f "$RUNNER_TEMP/segredos.json"
       - name: Conferir se o servidor respondeu
