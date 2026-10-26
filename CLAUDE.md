@@ -49,8 +49,8 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
     │   └── assets/              fonts/, sfx/, vfx/ + README com créditos
     ├── src/game/                FONTE do 3D (vira o arena3d.bundle.js)
     │   ├── arena3d.js           cena Three.js, câmera, torres, VFX, ponte com o engine
-    │   ├── models3d.js          modelos procedurais de unidades e torres
-    │   ├── animation.js         animateRig / animateDeath
+    │   ├── models3d.js          modelos cartoon (toon + contorno) de tropas, torres, ruínas e projéteis
+    │   ├── animation.js         animateRig / animateDeath (um estilo de ataque por tropa)
     │   └── software3d.js        renderizador por CPU quando não há WebGL
     └── tests/                   testes Node (ver seção 8)
 ```
@@ -72,7 +72,7 @@ O jogo **não passa por bundler** exceto o 3D. `public/game/index.html` carrega 
 | 2 | `CARDS` (as 8 cartas), `CARD` (por id), `POOL`, `DEFAULT_DECK`, `FOE_DECKS` |
 | 3 | VFX 2D: partículas, anéis, decalques, números |
 | 4 | Áudio sintetizado (`AU`) |
-| 5 | **Arte procedural 2D** (`ART`): uma função por `art` desenhando no canvas. Ainda usada em ícones de carta/retratos e no sprite 2D |
+| 5 | **Arte procedural 2D** (`ART`): uma função por `art` desenhando no canvas. Só é usada quando não há WebGL (ícones de carta caem nela) e no sprite 2D |
 | 6 | Estado `G` e entidades |
 | 7 | Projéteis, feitiços, simulação de unidades |
 | (campeões) | Bloco "Habilidades de campeão": **código morto**, ver `TAREFAS.md` |
@@ -97,11 +97,21 @@ Coordenadas do mundo: x em `0..1152`, y em `0..1664` (`AW*TILE` × `AH*TILE`). O
 cd web && pnpm build:game     # gera public/game/arena3d.bundle.js (Vite, formato IIFE)
 ```
 
-Sem WebGL, `software3d.js` rasteriza os mesmos triângulos na CPU (usa o `Projector` do Three). Funciona hoje com malhas de cor por vértice; **verifique** qualquer modelo novo com textura nesse caminho (teste abrindo com WebGL desligado).
+Sem WebGL, `software3d.js` rasteriza os mesmos triângulos na CPU (usa o `Projector` do Three). Ele lê a cor por vértice da malha; nesse caminho `setLowDetail(true)` monta os modelos com menos lados e sem contorno. **Verifique** qualquer modelo novo com textura nesse caminho (teste abrindo com WebGL desligado).
+
+### Visual 3D cartoon (`models3d.js`, decisão do dono)
+
+Estilo cartoon arredondado: cabeça grande, formas lisas, cor do time forte (azul `palette.ally`, vermelho `palette.foe`) no que aparece de cima (capacete, capuz, bandana, ombros, asas).
+- `materials.toon`: `MeshToonMaterial` com gradiente de 3 tons e brilho de borda; `materials.glow` para o que brilha sozinho (pavio, olhos do esqueleto); `materials.outline`: contorno escuro "inverted hull". O contorno some no modo leve e quando `QUALITY` cai (arena3d `render`).
+- `Parts` monta tudo com cor por vértice e une numa malha por parte do rig: `box` (arredondada), `ball`, `dome`, `capsule`, `cyl`, `cone`, `torus`, `lathe`, `shape` (extrusão), `at(x,y,z,rx,ry,rz,fn)` (sub-referencial) e opções `{glow, outline}`. Os lados de cada peça dependem do tamanho (olho pequeno = poucos lados).
+- Orçamento para o celular (conferido no `combat.test.mjs`): cada tropa abaixo de 4.500 triângulos sem o contorno; torre abaixo de 7.500.
+- Torres: base de pedra com bandeiras do time e uma **balestra** na torreta (as torres atiram `bolt`); a do rei tem o rei atrás da balestra. Projéteis 3D: `projectileModel('arrow'|'bolt'|'bomb')`.
+- `window.cardPortrait3D(art, side)` (no bundle) fotografa o modelo numa pose de ação; `paintCard` (engine.js) usa esse retrato nas cartas da mão, do baralho e da próxima carta, e a página inicial também. Sem WebGL volta para a arte 2D `ART`. Feitiços continuam com `SPELL_ART`.
+- Efeitos 3D próprios do `arena3d.js` (além das partículas do engine): poeira ao pousar, puff de morte, estrelas de atordoado, clarão e onda do Bólide/Estalo, estilhaços da torre, raios do céu até o chão.
 
 ### Contrato do rig 3D (o que `animation.js` espera)
 
-`unitModel(art, team)` devolve um `Group` cujos filhos são grupos **nomeados**: `leftLeg`, `rightLeg`, `leftArm`, `rightArm` e, para voadores, `leftWing`, `rightWing`. `animateRig` só altera `rotation.x/y/z` desses grupos (pivô na articulação) mais rotação/escala/posição do modelo inteiro. `root.userData.height` define a altura da barra de vida. Os estados que dirigem a animação vêm de `e` (a entidade): `moving`, `heading`, `ph` (fase do passo), `attackWindup`, `attackPrep`, `atk` (0..1 durante o golpe), `hurt`, `stun`, `deploy`, `air`. Um rig novo precisa expor esses nomes (ou o `animation.js` precisa ser trocado junto, com os testes).
+`unitModel(art, team)` devolve um `Group` cujos filhos são grupos **nomeados**: `leftLeg`, `rightLeg`, `leftArm`, `rightArm`, `head` (pivô no pescoço) e, para voadores, `leftWing`, `rightWing`; o braço direito pode ter um `prop` (a bomba do Bombardeiro, que some no arremesso). `animateRig` só altera `rotation.x/y/z` desses grupos (pivô na articulação) mais rotação/escala/posição do modelo inteiro. `root.userData.height` define a altura da barra de vida e `root.userData.style` escolhe o ataque (`sword`, `stab`, `punch`, `bow`, `throw`, `bite`, em `STYLES` do `animation.js`). O dano sai quando `atk` vira 1, então a pose de contato do golpe é a de `atk=1`. Os estados que dirigem a animação vêm de `e` (a entidade): `moving`, `heading`, `ph` (fase do passo), `attackWindup`, `attackPrep`, `atk` (0..1 durante o golpe), `hurt`, `stun`, `deploy`, `air`. Um rig novo precisa expor esses nomes (ou o `animation.js` precisa ser trocado junto, com os testes).
 
 ### Online (`online.js`, `app/api/room/route.ts`)
 
@@ -181,7 +191,7 @@ node tests/cloudflare.test.mjs    # tools/cloudflare.mjs com a API da Cloudflare
 node node_modules/typescript/bin/tsc --noEmit
 ```
 
-`tests/api-harness.mjs` carrega as rotas `.ts` em memória com `node:sqlite` e as migrações reais. O `combat.test.mjs` valida a lista de `art` dos rigs (`knight, archer, goblin, giant, bomber, bat`); **atualize essa lista quando os modelos novos entrarem**.
+`tests/api-harness.mjs` carrega as rotas `.ts` em memória com `node:sqlite` e as migrações reais. O `combat.test.mjs` valida a lista de `art` dos rigs (`knight, archer, goblin, giant, bomber, bat`): partes nomeadas, todas as fases da animação, a morte, o orçamento de triângulos e o modo sem WebGL; **atualize essa lista quando os modelos novos entrarem**.
 
 Teste visual: nada substitui abrir o jogo. Verifique menu, uma partida de treino de 1 minuto jogando cartas, e uma sala online com dois navegadores. Para forçar o caminho sem WebGL, abra o Chromium com `--disable-gpu --disable-webgl`.
 

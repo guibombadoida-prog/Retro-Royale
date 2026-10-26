@@ -41,9 +41,11 @@ Legenda: **[verificado]** foi testado numa auditoria; **[não verificado]** é p
 
 **Feito [verificado]:** o `build-android.yml`, na `main`, recria o pré-release `android-latest`; o release apareceu com `retro-royale-android.apk` depois do merge. O botão do jogo e o da página inicial apontam para `https://github.com/guibombadoida-prog/Retro-Royale/releases/download/android-latest/retro-royale-android.apk`. O app abre o servidor da Cloudflare quando ele está no ar, senão o jogo do GitHub Pages; o endereço fica nas notas do release.
 
-## 3. Modelos e animações (rigs R6 do Roblox) — o trabalho principal
+## 3. Modelos e animações
 
-O dono vai remodelar as 8 cartas. Plano de integração **[não verificado]**:
+**Feito em 26/10/2026 (estilo escolhido pelo dono: cartoon arredondado):** as 6 tropas, as duas torres, a ruína, os projéteis, a arena (grama, rio, pontes, muro e entorno), as animações (andar, respirar, ataque por estilo, dano, tontura, entrada caindo do céu, morte) e os efeitos (Bólide, Estalo, poeira, puff, estrelas, torre caindo) foram refeitos em código, sem arquivos externos. Os ícones das cartas viraram retratos do próprio modelo 3D. [verificado] testes, fotos com WebGL e sem WebGL. [não verificado] desempenho num celular de verdade (o teste usa GPU emulada); se pesar, o modo leve tira sombra e contorno.
+
+Se o dono ainda quiser trazer modelos do Roblox (R6 com textura e animação em CFrame), o plano abaixo continua valendo; o modelo novo só precisa expor as mesmas partes e o `userData.style`. **[não verificado]**:
 
 ### 3.1 Receber os assets
 
@@ -90,7 +92,7 @@ O dono vai converter as animações do Roblox (por ID) para código. Plano:
 
 ### 3.5 Arte 2D e ícones
 
-Os ícones das cartas na mão e nos menus ainda usam a **arte procedural 2D** (`ART` em `engine.js`, chaves `knight`, `archer`, `goblin`, `giant`, `fireball`, `zap`, `bomber`, `bat`). Para ícones novos: ou desenhar PNGs (`web/public/game/assets/cards/`) e fazer `paintCard` usar imagem, ou renderizar um retrato do próprio modelo 3D. Decidir com o dono.
+**Feito:** `paintCard` usa `window.cardPortrait3D` (retrato do modelo 3D numa pose de ação) nas tropas; feitiços seguem com `SPELL_ART`. A arte 2D `ART` ficou só como reserva sem WebGL. Se um modelo novo entrar, o retrato muda sozinho.
 
 ## 4. Remover código morto dos campeões
 
@@ -100,7 +102,7 @@ Nada no jogo aciona esse código hoje, mas ele ainda pesa e confunde. Remover **
 - `engine.js`: arte 2D das cartas que saíram (`skeleton`, `ram`, `colossus`, `mage`, `drake`, `cannon`, `coil`, `arrows`, `tornado`) e as ramificações de feitiço `saraivada`/`vortice`.
 - `ui.js`: `syncChampionButtons`, `CHAMP_UI`, `abilityIcon`, o seletor de posição do botão de habilidade.
 - `online.js`: `abilityOwn` e o uso de `activateChampionAbility`/`championAbilityState`; em `TEAMS`, o `ability`.
-- `src/game/arena3d.js` e `models3d.js`: modelos e campos de efeito dos campeões (`bombking`, `bwchamp`, `dollaltar`, `hologram`, gangue) e os modelos das cartas removidas. Depois: `pnpm build:game`.
+- ~~`src/game/arena3d.js` e `models3d.js`: modelos e campos de efeito dos campeões e das cartas removidas~~ (feito na reforma 3D: os dois arquivos foram reescritos só com as 8 cartas).
 - `public/game/index.html` e `arena.css`: `#championPanel`, `.abilityButton`, `.cbadge` e afins.
 - `progress.js` (`CHAMPION_IDS`) e o servidor: `CHAMPIONS` em `lib/player-profile.ts`. As colunas `unlocked` e `battles` do banco podem ficar (evitam migração); decidir com o dono.
 

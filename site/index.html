@@ -61,6 +61,17 @@ section h2{font-size:clamp(30px,4.5vw,42px);color:#fff1c6;margin-bottom:8px}
 .card b{font-family:Royale,system-ui,sans-serif;font-weight:400;font-size:20px;color:#fff;text-shadow:0 2px #13304f,1px 0 #13304f,-1px 0 #13304f}
 .card small{font-size:13px;color:#16365a}
 .card .tags{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#1d4f80;margin-top:4px}
+.card img.icon{width:100px;height:110px;object-fit:contain;margin:-14px 0 -4px;filter:drop-shadow(0 4px 0 #0d2a4730)}
+.kicker.news{background:#ffd34f;color:#5a3a00;border-color:#fff1b0;margin-left:6px;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.05)}}
+.soon{margin-top:26px;padding-top:22px;border-top:2px dashed #ffffff40;max-width:900px}
+.card.mystery{background:linear-gradient(#2b4f86,#1a3561);border-style:dashed;border-color:#ffd34f;box-shadow:inset 0 0 0 2px #ffffff22,0 4px #082d5c;color:#d3e6fa}
+.card.mystery .q{display:grid;place-items:center;width:76px;height:76px;margin:4px 0 6px;font-family:Royale,system-ui,sans-serif;font-size:58px;color:#ffd34f;text-shadow:0 0 18px #ffd34f88,0 3px #5a3a00}
+.card.mystery small{color:#bcd6f2}
+.card.mystery .cost{background:radial-gradient(ellipse at 35% 30%,#fff3b0,#ffc93c 65%,#d18b1c);border-color:#7a4c00;text-shadow:1px 2px #7a4c00}
+.soonText{margin-top:16px;color:#d3e6fa}
+.soonText b{font-family:Royale,system-ui,sans-serif;font-weight:400;font-size:20px;color:#ffd34f;margin-right:4px}
+@media (prefers-reduced-motion:reduce){.kicker.news{animation:none}}
 .cost{position:absolute;top:-10px;left:-10px;width:36px;height:42px;display:grid;place-items:center;padding-top:4px;font-family:Royale,system-ui,sans-serif;font-size:20px;color:#fff;text-shadow:1px 2px #5c0b59;background:radial-gradient(ellipse at 35% 30%,#ff98fa,#e11acb 65%,#940e91);border:2px solid #4b0a49;border-radius:50% 50% 50% 50%/60% 60% 40% 40%}
 
 .steps{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;counter-reset:passo}
@@ -126,7 +137,7 @@ footer a{color:var(--ouro)}
  <section class="hero">
   <div class="wrap">
    <div>
-    <p class="kicker">Arena de cartas 3D · tempo real</p>
+    <p class="kicker">Arena de cartas 3D · tempo real</p> <p class="kicker news">✨ Novas cartas em breve</p>
     <h1>Retro Royale<span>Ponte das Coroas</span></h1>
     <p class="lead">Monte seu baralho, gaste o elixir na hora certa, atravesse a ponte e derrube as torres do rival. No navegador ou no celular.</p>
     <div class="actions">
@@ -145,10 +156,19 @@ footer a{color:var(--ouro)}
  <section id="cartas">
   <div class="wrap">
    <h2>As {{QUANTAS_CARTAS}} cartas</h2>
-   <p class="sub">O baralho é fixo por enquanto: cada carta está ganhando modelo 3D, textura e animações novas, uma por vez.</p>
+   <p class="sub">Todas com visual cartoon novo: modelo 3D, animações e efeitos próprios.</p>
    <ul class="cards">
    <!-- CARTAS -->
    </ul>
+   <div class="soon">
+    <ul class="cards" aria-label="Cartas novas em breve">
+     <li class="card mystery" aria-hidden="true"><span class="cost">?</span><span class="q">?</span><b>Em breve</b><small>tropa nova</small></li>
+     <li class="card mystery" aria-hidden="true"><span class="cost">?</span><span class="q">?</span><b>Em breve</b><small>feitiço novo</small></li>
+     <li class="card mystery" aria-hidden="true"><span class="cost">?</span><span class="q">?</span><b>Em breve</b><small>construção nova</small></li>
+     <li class="card mystery" aria-hidden="true"><span class="cost">?</span><span class="q">?</span><b>Em breve</b><small>surpresa</small></li>
+    </ul>
+    <p class="soonText"><b>Novas cartas em breve!</b> Mais tropas, feitiços e construções estão sendo criados para a Ponte das Coroas, cada um com modelo 3D, animações e efeitos próprios.</p>
+   </div>
   </div>
  </section>
 
@@ -200,6 +220,15 @@ footer a{color:var(--ouro)}
 </footer>
 
 <script>
+// Troca os ícones das tropas pelos retratos 3D do próprio jogo (game/arena3d.bundle.js), depois que a página abriu.
+// Sem WebGL, cardPortrait3D devolve null e os desenhos continuam.
+addEventListener('load',()=>{
+ const s=document.createElement('script');s.src='game/arena3d.bundle.js';
+ s.onload=()=>{for(const card of document.querySelectorAll('.card[data-art][data-tipo=tropa]')){
+  const c=window.cardPortrait3D?.(card.dataset.art,'ally');if(!c)continue;
+  const img=new Image();img.src=c.toDataURL();img.className='icon';img.alt='';card.querySelector('svg.icon')?.replaceWith(img);}};
+ document.head.append(s);
+});
 // A prévia ao vivo só carrega o jogo em telas largas, para não pesar no celular.
 (()=>{
  const wide=matchMedia('(min-width: 901px)'),box=document.getElementById('preview');
