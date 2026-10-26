@@ -3,7 +3,8 @@ const CHAMPION_IDS=[],DECK_IDS=['cavaleiro','arqueiras','goblins','gigante','bol
 const PROGRESS={
  token:null,battles:0,unlocked:[],loaded:false,revision:0,cloud:null,dirty:false,hydrating:false,saving:false,saveTimer:0,
  allowed(id){return !CHAMPION_IDS.includes(id)||this.unlocked.includes(id);},
- sanitize(){return DECK_IDS.slice();},
+ // Baralho do jogador: 8 cartas diferentes que existem no jogo; qualquer outra coisa volta ao baralho padrão.
+ sanitize(deck){const ok=Array.isArray(deck)&&deck.length===8&&new Set(deck).size===8&&deck.every(id=>typeof id==='string'&&typeof CARD!=='undefined'&&CARD[id]&&!CARD[id].oculta&&this.allowed(id));return ok?deck.slice():DECK_IDS.slice();},
  apply(data){this.battles=Math.max(0,Number(data.battles)||0);this.unlocked=[];},
  init(){if(!this.loadingPromise)this.loadingPromise=this.load().finally(()=>{this.loadingPromise=null;});return this.loadingPromise;},
  async load(){

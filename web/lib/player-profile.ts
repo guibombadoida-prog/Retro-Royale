@@ -1,5 +1,5 @@
 export const CHAMPIONS: string[]=[];
-export const CARD_IDS=new Set(['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos']);
+export const CARD_IDS=new Set(['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos','princesa']);
 export const newToken=()=>crypto.randomUUID()+crypto.randomUUID();
 export async function hashToken(token:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))).map(x=>x.toString(16).padStart(2,'0')).join('');}
 export const validToken=(value:unknown):value is string=>typeof value==='string'&&/^[a-f0-9-]{72}$/.test(value);

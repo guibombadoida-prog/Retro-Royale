@@ -41,7 +41,7 @@ let cloud=await h.call('/api/profile',{token:first.token},{cookie:cookieA});eq(c
 h.database.prepare('UPDATE email_login_codes SET created=created-61000').run();
 const second=await guest(),flow2=await begin(second),session2=await finish(flow2),cookieB=cookieOf(session2);eq(session2.status,200);
 const restored=await h.call('/api/profile',{token:second.token},{cookie:cookieB});eq(restored.data.account.id,cloud.data.account.id);eq(restored.data.unlocked,[]);eq(restored.data.battles,1);eq(restored.data.deck,normal);
-const revision=restored.data.revision,changed=[...normal].reverse();
+const revision=restored.data.revision,changed=['princesa',...normal.slice(1)].reverse();
 const save1=await h.call('/api/profile',{token:second.token,save:true,revision,deck:changed,settings:{abilityPosition:'both'}},{cookie:cookieB});eq(save1.status,200);
 const conflict=await h.call('/api/profile',{token:first.token,save:true,revision,deck:normal,settings:{}},{cookie:cookieA});eq(conflict.status,409);eq(conflict.data.deck,changed);
 eq((await h.call('/api/profile',{token:second.token,save:true,revision:save1.data.revision,deck:['pretobranco',...normal.slice(0,7)],settings:{}},{cookie:cookieB})).status,400);

@@ -12,7 +12,9 @@ Modos: treino contra a IA (3 níveis), e online 1v1, 2v1, 2v2 e 3v1. Cada partic
 
 Plataformas: navegador e app Android (um WebView que carrega o site publicado). Os dois usam o mesmo jogo e entram na mesma sala pelo código de 6 caracteres.
 
-**Estado atual das cartas (decisão do dono):** o jogo tem exatamente **8 cartas, baralho fixo**: `cavaleiro`, `arqueiras`, `goblins`, `gigante`, `bolide`, `estalo`, `bombardeiro`, `morcegos`. Todas as outras cartas e os 3 campeões foram removidos. O dono vai **remodelar todas as cartas e os modelos 3D** (rigs R6 do Roblox com textura e skin, e animações convertidas para código tipo CFrame). Não reintroduza cartas removidas.
+**Estado atual das cartas (decisão do dono):** o jogo tem **9 cartas** e o jogador monta o baralho com **8 delas** (construtor de baralho no menu: toca para tirar ou pôr): `cavaleiro`, `arqueiras`, `goblins`, `gigante`, `bolide`, `estalo`, `bombardeiro`, `morcegos` e a nova `princesa` (Princesa da Bolha, 26/10/2026). O baralho padrão continua sem a Princesa; a IA às vezes joga com ela (`FOE_DECKS`). Todas as outras cartas antigas e os 3 campeões foram removidos; não os reintroduza. Cartas novas entram uma de cada vez, pedidas pelo dono.
+
+**Princesa da Bolha** (números escolhidos pelo dono): 5 de elixir, 450 de vida, ataca só o chão, corpo a corpo com espada de bolha (140 a cada 1,1 s). Habilidade **automática com recarga** (`bolha` no `CARDS`): a cada 7 s (a primeira 1,5 s depois de entrar) ela para, conjura e lança uma bolha a até 5 casas no ponto com mais tropas terrestres inimigas; quem está na área (1,8 casa) flutua 2,5 s sem andar nem atacar, leva 150 quando a bolha estoura e 100 ao bater no chão. Voadores e torres não são presos. Código: `stepBubbleCaster`, `launchBubble`, `trapInBubble`, `stepTrapped` (engine.js, logo depois de `eachEnemyOf`).
 
 ## 2. Estrutura do repositório
 
@@ -45,7 +47,7 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
     │   ├── account.js           login por e-mail
     │   ├── connection.js        monitor de conexão e banner offline
     │   ├── config.js            onde o jogo está hospedado (RR_SITE); modo site sem API
-    │   ├── sfx.js               sons gravados: tropas (assets/sfx/tropas) e Kenney; o engine sintetiza a reserva
+    │   ├── sfx.js               sons gravados: tropas (assets/sfx/tropas) e Kenney; música e água da Princesa; o engine sintetiza a reserva
     │   ├── clock.js
     │   ├── arena3d.bundle.js    BUNDLE GERADO do 3D (não edite à mão)
     │   └── assets/              fonts/, sfx/, vfx/ + README com créditos
@@ -71,7 +73,7 @@ O jogo **não passa por bundler** exceto o 3D. `public/game/index.html` carrega 
 |---|---|
 | 0 | Constantes do mundo: `TILE=64`, arena `AW=18 × AH=26` casas, rio nas linhas 12–14, pontes em `LANE=[3.5,14.5]`, torres em `PR_Y`/`KG_Y`, `MATCH_TIME=180`, `OVER_TIME=60`, paleta `T`, lados `side.ally/foe` |
 | 1 | Matemática |
-| 2 | `CARDS` (as 8 cartas), `CARD` (por id), `POOL`, `DEFAULT_DECK`, `FOE_DECKS` |
+| 2 | `CARDS` (as 9 cartas), `CARD` (por id), `POOL`, `DEFAULT_DECK`, `FOE_DECKS` |
 | 3 | VFX 2D: partículas, anéis, decalques, números |
 | 4 | Áudio sintetizado (`AU`) |
 | 5 | **Arte procedural 2D** (`ART`): uma função por `art` desenhando no canvas. Só é usada quando não há WebGL (ícones de carta caem nela) e no sprite 2D |
@@ -80,14 +82,14 @@ O jogo **não passa por bundler** exceto o 3D. `public/game/index.html` carrega 
 | (campeões) | Bloco "Habilidades de campeão": **código morto**, ver `TAREFAS.md` |
 | 8 | Baralho, IA rival, fluxo da partida (`startMatch`, `initCycle`, `TEAMS`) |
 | 9 | Render 2D |
-| 10 | Interface: arrastar e soltar, construtor de baralho (`buildPool`, `syncDeck`, `launch`) |
+| 10 | Interface: arrastar e soltar, construtor de baralho (`buildPool`: toque marca/desmarca, no máximo 8; `syncDeck`, `launch`) |
 | 11 | Laço principal |
 
 Coordenadas do mundo: x em `0..1152`, y em `0..1664` (`AW*TILE` × `AH*TILE`). O lado `foe` fica em cima (y pequeno), `ally` embaixo. No online o jogador do time 1 vê o campo espelhado (`y' = 1664 - y`).
 
 ### Campos de uma carta em `CARDS`
 
-`id`, `nome`, `custo` (elixir), `tipo` (`tropa` | `construcao` | `feitico`), `papel` (texto na UI), `art` (chave de arte/modelo 3D), `hp`, `dmg`, `hit` (segundos entre golpes), `range` (em casas), `speed` (casas/s), `sight`, `alvo` (`chao` | `ambos` | `construcoes`), `raio`, `massa`, `deploy` (tempo de entrada), `n` (quantas unidades nascem), `splash`, `proj` (tipo de projétil: `arrow`, `bomb`...), `ar:true` (voa), `pula` (salta o rio), `feitico:{kind, raio, dmg, ...}` para feitiços.
+`id`, `nome`, `custo` (elixir), `tipo` (`tropa` | `construcao` | `feitico`), `papel` (texto na UI), `art` (chave de arte/modelo 3D), `hp`, `dmg`, `hit` (segundos entre golpes), `range` (em casas), `speed` (casas/s), `sight`, `alvo` (`chao` | `ambos` | `construcoes`), `raio`, `massa`, `deploy` (tempo de entrada), `n` (quantas unidades nascem), `splash`, `proj` (tipo de projétil: `arrow`, `bomb`...), `ar:true` (voa), `pula` (salta o rio), `feitico:{kind, raio, dmg, ...}` para feitiços, `nova:true` (selo "Nova!" no baralho e "nova!" no site) e `bolha:{recarga, primeira, alcance, area, flutua, estouro, queda, conjura}` (habilidade da Princesa).
 
 ### Ponte engine ↔ 3D (`src/game/arena3d.js`)
 
@@ -122,7 +124,7 @@ Estilo cartoon arredondado: cabeça grande, formas lisas, cor do time forte (azu
 
 ### Contrato do rig 3D (o que `animation.js` espera)
 
-`unitModel(art, team)` devolve um `Group` cujos filhos são grupos **nomeados**: `leftLeg`, `rightLeg`, `leftArm`, `rightArm`, `head` (pivô no pescoço) e, para voadores, `leftWing`, `rightWing`; o braço direito pode ter um `prop` (a bomba do Bombardeiro, que some no arremesso). `animateRig` só altera `rotation.x/y/z` desses grupos (pivô na articulação) mais rotação/escala/posição do modelo inteiro. `root.userData.height` define a altura da barra de vida e `root.userData.style` escolhe o ataque (`sword`, `stab`, `punch`, `bow`, `throw`, `bite`, em `STYLES` do `animation.js`). O dano sai quando `atk` vira 1, então a pose de contato do golpe é a de `atk=1`. Os estados que dirigem a animação vêm de `e` (a entidade): `moving`, `heading`, `ph` (fase do passo), `attackWindup`, `attackPrep`, `atk` (0..1 durante o golpe), `hurt`, `stun`, `deploy`, `air`. Um rig novo precisa expor esses nomes (ou o `animation.js` precisa ser trocado junto, com os testes).
+`unitModel(art, team)` (arts: `knight`, `archer`, `goblin`, `giant`, `bomber`, `bat`, `princess`) devolve um `Group` cujos filhos são grupos **nomeados**: `leftLeg`, `rightLeg`, `leftArm`, `rightArm`, `head` (pivô no pescoço) e, para voadores, `leftWing`, `rightWing`; o braço direito pode ter um `prop` (a bomba do Bombardeiro, que some no arremesso). `animateRig` só altera `rotation.x/y/z` desses grupos (pivô na articulação) mais rotação/escala/posição do modelo inteiro. `root.userData.height` define a altura da barra de vida e `root.userData.style` escolhe o ataque (`sword`, `stab`, `punch`, `bow`, `throw`, `bite`, em `STYLES` do `animation.js`). O dano sai quando `atk` vira 1, então a pose de contato do golpe é a de `atk=1`. Os estados que dirigem a animação vêm de `e` (a entidade): `moving`, `heading`, `ph` (fase do passo), `attackWindup`, `attackPrep`, `atk` (0..1 durante o golpe), `hurt`, `stun`, `deploy`, `air`, e da Princesa: `cast` (conjurando, conta até 0), `bolha` (presa flutuando, s restantes) e `caindo`. O `arena3d.js` desenha a bolha de vidro iridescente (`Bubbles`, `bubbleOf`) em volta de quem está preso, na ponta da espada enquanto ela conjura e no projétil `bubble`; o estouro vira clarão e brilho. Um rig novo precisa expor esses nomes (ou o `animation.js` precisa ser trocado junto, com os testes).
 
 ### Online (`online.js`, `app/api/room/route.ts`, `lib/live-room.ts`)
 
@@ -143,6 +145,7 @@ O anfitrião simula a 60 Hz e envia estado aos convidados 15 vezes por segundo. 
 - O engine toca sons por nome (`AU.sfx('boom')`) e, para cartas, por momento: `AU.unit(id, evento, reserva, volume)` com `deploy` (carta jogada), `swing` (começo do golpe), `attack` (disparo à distância), `hit` (golpe corpo a corpo acertou), `impact` (flecha acertou), `die`, `cast` (feitiço) e `step` (passos/asas das suas tropas, no `AU.stepSfx`).
 - `sfx.js` tem a tabela `TROOPS` (carta → momento → arquivos em `assets/sfx/tropas/<carta>/`, um é sorteado) e `GAIN` (volume por momento). Para trocar o som de uma tropa, troque o arquivo ou a lista. Sem o arquivo carregado, toca a `reserva` genérica (Kenney ou sintetizada).
 - Os sons das tropas vieram do pacote do dono, **só efeitos, sem música** (decisão do dono). Não coloque música nem os "jingles" do pacote.
+- **Única exceção, pedida pelo dono:** a música da Princesa da Bolha (`assets/sfx/tropas/princesa/EtherealNightWhispers_*.ogg`) toca **só enquanto a habilidade está ativa** (conjurando, bolha voando ou alguém preso ou caindo) e o som de água (`Water_*.ogg`, laço de 20 s) só enquanto alguém flutua. `AU.ambience` (sfx.js, chamado a cada quadro pelo ui.js) faz o fade e a música continua de onde parou. Esses dois tocam por `<audio>` para não decodificar 145 s de música na memória; o app Android (`setMediaPlaybackRequiresUserGesture(true)`) só deixa tocar depois de um toque, por isso `unlockAmbient` destrava os dois com um som mudo no primeiro toque e o arquivo de verdade só é carregado quando a Princesa está num baralho ou em campo.
 - No online o anfitrião grava os sons da partida (`AU.sfx` com nome em `NET_SFX` e `AU.unit` com momento em `NET_UNIT_EVENTS`) junto com os efeitos, e o convidado os repete (`replaySound`). Sons só do próprio jogador (botões, elixir cheio, vitória, passos) não viajam; a entrada da carta que o convidado jogou não toca duas vezes (`ownSounds`).
 
 ### Progresso, conta e perfil
@@ -171,7 +174,7 @@ Não há Gradle wrapper no repositório; o CI (`build-android.yml`) usa `setup-g
 
 ## 6. Regras que não podem quebrar
 
-1. **Os ids de carta têm 4 lugares** que precisam andar juntos: `CARDS` + `DEFAULT_DECK` (engine.js), `DECK_IDS` (progress.js), `CARDS` (room/route.ts), `CARD_IDS` (lib/player-profile.ts), e `testNormal` nos testes. Errar um deles dá "Escolha oito cartas diferentes" no online ou baralho vazio.
+1. **Os ids de carta têm 4 lugares** que precisam andar juntos: `CARDS` + `DEFAULT_DECK` (engine.js), `DECK_IDS` (progress.js, o baralho padrão; `PROGRESS.sanitize` aceita qualquer 8 diferentes do `CARD`), `CARDS` (room/route.ts), `CARD_IDS` (lib/player-profile.ts), e os baralhos dos testes. Errar um deles dá "Escolha oito cartas diferentes" no online ou o baralho volta ao padrão.
 2. Mudou `web/src/game/*`? Rode `pnpm build:game` e **commite o bundle** (o site serve `public/game/arena3d.bundle.js` direto).
 3. Scripts do cliente compartilham escopo global. Não declare `const`/`let` com nome já usado em outro arquivo.
 4. O servidor nunca confia no cliente: baralho, progresso e comandos são validados na API. Mantenha assim.
@@ -221,7 +224,7 @@ node tests/live.test.mjs          # sala ao vivo: entrada pelo token, repasse, l
 node node_modules/typescript/bin/tsc --noEmit
 ```
 
-`tests/api-harness.mjs` carrega as rotas `.ts` em memória com `node:sqlite` e as migrações reais. O `combat.test.mjs` valida a lista de `art` dos rigs (`knight, archer, goblin, giant, bomber, bat`): partes nomeadas, todas as fases da animação, a morte, o orçamento de triângulos e o modo sem WebGL; **atualize essa lista quando os modelos novos entrarem**.
+`tests/api-harness.mjs` carrega as rotas `.ts` em memória com `node:sqlite` e as migrações reais. O `combat.test.mjs` valida a lista de `art` dos rigs (`knight, archer, goblin, giant, bomber, bat, princess`) e simula a habilidade da Princesa (recarga, quem é preso, dano do estouro e da queda): partes nomeadas, todas as fases da animação, a morte, o orçamento de triângulos e o modo sem WebGL; **atualize essa lista quando os modelos novos entrarem**.
 
 Teste visual: nada substitui abrir o jogo. Verifique menu, uma partida de treino de 1 minuto jogando cartas, e uma sala online com dois navegadores. Para forçar o caminho sem WebGL, abra o Chromium com `--disable-gpu --disable-webgl`.
 
