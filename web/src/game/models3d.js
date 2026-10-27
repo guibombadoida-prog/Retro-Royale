@@ -281,15 +281,17 @@ const builders={
   });
  },
  // Princesa da Bolha: vestido em sino da cor do time, tiara, cabelo longo e espada de bolhas que brilha.
- princess(t){
-  const C=team(t),H='#ffd65c',HD='#e9a93a',B='#9fe6ff';
-  return humanoid({style:'sword',shirt:C,sleeve:'#fff4fb',pants:palette.skin,boots:'#f2f0ff',bodyR:.22,bodyScale:[1,1.15,.85],legR:.07,armR:.06,handR:.08,scale:.98,
+ // `hero`: versão Herói (referência do dono): coroa, ombreiras e gema douradas, mantendo a cor do time.
+ princess(t,hero=false){
+  const C=team(t),H='#ffd65c',HD='#e9a93a',B='#9fe6ff',G=palette.gold;
+  return humanoid({style:'sword',shirt:C,sleeve:hero?G:'#fff4fb',pants:palette.skin,boots:'#f2f0ff',bodyR:.22,bodyScale:[1,1.15,.85],legR:.07,armR:.06,handR:.08,scale:.98,
    body(p,{bodyY,bodyR}){
     // saia em sino com babado branco e barra dourada
     p.lathe([[.46,bodyY-.64],[.44,bodyY-.6],[.32,bodyY-.36],[bodyR*1.05,bodyY-.14],[bodyR*.85,bodyY-.02]],C,0,0,0,18);
     p.ring(0,bodyY-.62,0,.45,.035,palette.gold,Math.PI/2);
     for(let i=0;i<5;i++){const a=i/5*Math.PI*2+.3;p.ball(Math.sin(a)*.36,bodyY-.42,Math.cos(a)*.36,.05,B,1,1,1,{glow:true},6);}
-    p.ball(0,bodyY+.1,bodyR*.82,.05,B,1,1,1,{glow:true},6);
+    if(hero){p.ring(0,bodyY-.02,0,bodyR*.92,.035,G,Math.PI/2);p.box(0,bodyY+.08,bodyR*.86,.1,.1,.05,G,0,0,Math.PI/4);p.box(0,bodyY+.08,bodyR*.9,.05,.05,.04,'#fff3c0',0,0,Math.PI/4,{glow:true});}
+    else p.ball(0,bodyY+.1,bodyR*.82,.05,B,1,1,1,{glow:true},6);
    },
    head(p,{hc,R}){
     const [x,y,z]=hc;
@@ -300,13 +302,18 @@ const builders={
     for(const s of [-1,1])p.capsule(x+s*R*.86,y-R*.55,z+R*.1,R*.17,R*.7,H,0,0,s*.12);
     eyes(p,x,y-R*.12,z,R,{lash:true,size:.16,spread:.36});smile(p,x,y,z,R,{w:.11});
     for(const s of [-1,1])p.ball(x+s*R*.55,y-R*.32,z+R*.74,R*.12,'#ff9ec2',1,.6,.4,{outline:false},8);
-    // tiara com gema de bolha
-    p.at(x,y+R*.82,z+R*.12,-.3,0,0,q=>{q.torus(0,0,0,R*.5,R*.06,palette.gold,Math.PI,Math.PI/2,0,0);
+    // tiara com gema de bolha (Herói: coroa dourada)
+    if(hero)p.at(x,y+R*.9,z-R*.02,-.15,0,0,q=>{q.cyl(0,0,0,R*.42,R*.45,R*.2,G,12);
+     for(let i=0;i<5;i++){const a=i/5*Math.PI*2;q.cone(Math.sin(a)*R*.38,R*.24,Math.cos(a)*R*.38,R*.1,R*.28,G,0,0,0,undefined,5);}
+     q.ball(0,R*.02,R*.45,R*.09,B,1,1,1,{glow:true},6);});
+    else p.at(x,y+R*.82,z+R*.12,-.3,0,0,q=>{q.torus(0,0,0,R*.5,R*.06,palette.gold,Math.PI,Math.PI/2,0,0);
      for(const k of [-1,0,1])q.cone(k*R*.32,R*.15+(k?0:R*.08),R*(.36-Math.abs(k)*.12),R*.09,R*(k?.24:.36),palette.gold,0,0,0,undefined,6);
      q.ball(0,R*.08,R*.5,R*.1,B,1,1,1,{glow:true},8);});
    },
    arm(p,s){
-    p.ball(0,-.02,0,.11,'#fff4fb',1.05,.9,1.05);p.ring(0,-.1,0,.075,.02,C,Math.PI/2,0,0,{outline:false});
+    if(hero){p.dome(0,.0,0,.13,G,.6,1.05,.9,1.05);p.ball(0,.07,0,.035,'#fff3c0',1,1,1,{glow:true},6);}
+    else p.ball(0,-.02,0,.11,'#fff4fb',1.05,.9,1.05);
+    p.ring(0,-.1,0,.075,.02,C,Math.PI/2,0,0,{outline:false});
     // espada de bolha: cabo dourado, guarda em arco e lâmina de bolhas de vidro
     if(s>0)p.at(0,-.29,.02,1.15,0,0,q=>{q.capsule(0,.03,0,.03,.1,palette.goldDark);q.torus(0,.13,0,.1,.025,palette.gold,Math.PI,0,0,0);
      q.ball(0,-.06,0,.045,B,1,1,1,{glow:true},8);
@@ -339,9 +346,10 @@ function bat(t){
  return root;
 }
 
-export function unitModel(art,side){
- const key=art+side;
- if(!cache.has(key)){const make=art==='bat'?bat:builders[art];cache.set(key,bakeRig(make?make(side):builders.knight(side)));}
+// `hero`: versão Herói da tropa, quando ela tem uma (hoje só a Princesa); senão é o modelo normal.
+export function unitModel(art,side,hero=false){
+ const key=art+side+(hero?':heroi':'');
+ if(!cache.has(key)){const make=art==='bat'?bat:builders[art];cache.set(key,bakeRig(make?make(side,hero):builders.knight(side)));}
  return cloneModel(cache.get(key));
 }
 

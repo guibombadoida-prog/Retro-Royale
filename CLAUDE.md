@@ -16,6 +16,10 @@ Plataformas: navegador e app Android (um WebView que carrega o site publicado). 
 
 **Princesa da Bolha** (números escolhidos pelo dono; buff de 27/10/2026): 5 de elixir, 600 de vida, ataca só o chão, corpo a corpo com espada de bolha (140 a cada 1,1 s). Habilidade **automática com recarga** (`bolha` no `CARDS`): a cada 5,5 s (a primeira 1,5 s depois de entrar) ela para, conjura e lança uma bolha a até 5 casas no ponto com mais tropas terrestres inimigas; quem está na área (1,8 casa) flutua 2,5 s sem andar nem atacar, leva 180 quando a bolha estoura e 120 ao bater no chão. Voadores e torres não são presos. Código: `stepBubbleCaster`, `launchBubble`, `trapInBubble`, `stepTrapped` (engine.js, logo depois de `eachEnemyOf`).
 
+**Raridades (regras do dono, campo `raridade`):** comum = sem magia, armas normais ou punho; rara = sem poderes, armas normais ou mágicas; épica = magia e poderes com armas sobrenaturais; lendária = como a épica, com mecânicas de poder novas; evento = cartas de evento. Hoje: Comum = Cavaleiro, Arqueiras, Goblins, Gigante, Bombardeiro, Morcegos; Rara = Bólide, Estalo; Lendária = Princesa. Cada uma tem moldura e símbolo próprios (comum prata sem símbolo, rara azul com triângulo, épica roxa com losango, lendária dourada com brilho e estrela, evento vermelha com fita): `cardMarks`/`RAR_SVG` no engine.js e o bloco "Raridade e versões" no fim do arena.css (`data-rar`, `data-versao`).
+
+**Espaços especiais do baralho e Heróis (referências do dono):** o baralho é ordenado; o 1º espaço é de **Evolução** (roxo), o 2º de **Herói** (dourado) e o 3º **Curinga** (os dois), `SLOT_EVO`/`SLOT_HEROI`. Uma carta com `heroi` no 2º ou 3º espaço entra em campo como Herói (`ehHeroi`, `deployCard` → `u.heroi`): modelo com coroa, ombreiras e gema douradas, anel dourado no chão e um botão de habilidade (o painel `championPanel` do antigo sistema de campeões, que agora também serve aos Heróis; posição esquerda/direita/os dois lados nas configurações). **Herói Princesa:** "Chuva de bolhas", 3 de elixir, recarga 14 s, prende na hora todos os inimigos a até 3,2 casas, inclusive voadores (`heroBubbleRain`). A IA usa quando pega dois inimigos ou um tanque. Ainda não existe nenhuma Evolução: o espaço roxo aceita qualquer carta, que joga normal. O dono escolheu **um baralho só** (sem as abas 1–5 da referência).
+
 ## 2. Estrutura do repositório
 
 ```
@@ -82,14 +86,14 @@ O jogo **não passa por bundler** exceto o 3D. `public/game/index.html` carrega 
 | (campeões) | Bloco "Habilidades de campeão": **código morto**, ver `TAREFAS.md` |
 | 8 | Baralho, IA rival, fluxo da partida (`startMatch`, `initCycle`, `TEAMS`) |
 | 9 | Render 2D |
-| 10 | Interface: arrastar e soltar, construtor de baralho (`buildPool`: toque marca/desmarca, no máximo 8; `syncDeck`, `launch`) |
+| 10 | Interface: arrastar e soltar, `paintCard` (retrato; `versao='heroi'` desenha o Herói), construtor de baralho (`buildPool`: toque marca/desmarca, no máximo 8, ou põe a carta no espaço escolhido em `DECK_PICK`; botão "i" abre os detalhes; `syncDeck`, `launch`). A grade do baralho (8 espaços, os três especiais, trocar de lugar) e a janela de detalhes da carta (`openCardInfo`) ficam no ui.js |
 | 11 | Laço principal |
 
 Coordenadas do mundo: x em `0..1152`, y em `0..1664` (`AW*TILE` × `AH*TILE`). O lado `foe` fica em cima (y pequeno), `ally` embaixo. No online o jogador do time 1 vê o campo espelhado (`y' = 1664 - y`).
 
 ### Campos de uma carta em `CARDS`
 
-`id`, `nome`, `custo` (elixir), `tipo` (`tropa` | `construcao` | `feitico`), `papel` (texto na UI), `art` (chave de arte/modelo 3D), `hp`, `dmg`, `hit` (segundos entre golpes), `range` (em casas), `speed` (casas/s), `sight`, `alvo` (`chao` | `ambos` | `construcoes`), `raio`, `massa`, `deploy` (tempo de entrada), `n` (quantas unidades nascem), `splash`, `proj` (tipo de projétil: `arrow`, `bomb`...), `ar:true` (voa), `pula` (salta o rio), `feitico:{kind, raio, dmg, ...}` para feitiços, `nova:true` (selo "Nova!" no baralho e "nova!" no site) e `bolha:{recarga, primeira, alcance, area, flutua, estouro, queda, conjura}` (habilidade da Princesa).
+`id`, `nome`, `custo` (elixir), `tipo` (`tropa` | `construcao` | `feitico`), `papel` (texto na UI), `art` (chave de arte/modelo 3D), `hp`, `dmg`, `hit` (segundos entre golpes), `range` (em casas), `speed` (casas/s), `sight`, `alvo` (`chao` | `ambos` | `construcoes`), `raio`, `massa`, `deploy` (tempo de entrada), `n` (quantas unidades nascem), `splash`, `proj` (tipo de projétil: `arrow`, `bomb`...), `ar:true` (voa), `pula` (salta o rio), `feitico:{kind, raio, dmg, ...}` para feitiços, `nova:true` (selo "Nova!" no baralho e "nova!" no site), `raridade` (`comum`|`rara`|`epica`|`lendaria`|`evento`), `bolha:{recarga, primeira, alcance, area, flutua, estouro, queda, conjura}` (habilidade da Princesa) e `heroi:{id, nome, custo, recarga, raio, descricao}` (versão Herói; vira uma entrada em `CHAMP_ABILITIES` com `heroi:true`).
 
 ### Ponte engine ↔ 3D (`src/game/arena3d.js`)
 
@@ -138,6 +142,7 @@ O anfitrião simula a 60 Hz e envia estado aos convidados 15 vezes por segundo. 
 3. **ONLINE** (HTTPS `/api/room`): sinalização, batimento a cada 1,1 s e, se nada acima abrir, a partida inteira (lento: cada `sync` faz várias consultas ao D1, que fica longe).
 
 **O pacote do estado é enxuto (~5 KB; antes ~50 KB).** Regras ao mexer nele:
+- Habilidades (campeões antigos e Heróis) viajam como comando `kind:'ability'`; o servidor só aceita ids da lista `ABILITIES` em `app/api/room/route.ts` (hoje inclui `chuva`). Habilidade nova de Herói = id novo nessa lista.
 - `NET_KEYS` lista os campos de unidade, torre e projétil que viajam; valores iguais a `NET_DEFAULTS` não viajam e o convidado os completa (`netFill`). Campo novo que o 3D ou a UI do convidado lê precisa entrar em `NET_KEYS`.
 - As partículas não viajam. O anfitrião registra as chamadas das funções de efeito listadas em `NET_FX` (`sparks`, `explode`, `dmgText`...) e o convidado repete as mesmas chamadas (`replayFx`, espelhando para o time de cima). Efeito novo que o convidado deve ver é uma função nova na seção 3 do engine.js **e** um nome em `NET_FX`; `part()` direto não aparece para o convidado.
 - Emissores contínuos (`walkDust`, `projTrail`, `meteorTrail`) o convidado gera sozinho no `NET.frame` a partir do estado.

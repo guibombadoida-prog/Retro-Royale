@@ -73,37 +73,49 @@ function rgba(hex,a){ return `rgba(${rgbOf(hex)},${a})`; }
 /* ── 2. Cartas ──────────────────────────────────────────────────────── */
 /* velocidades: 0.55 lento · 0.75 médio · 1.10 rápido · 1.40 veloz       */
 const CARDS = [
-  { id:'cavaleiro', nome:'Cavaleiro', custo:3, tipo:'tropa', papel:'tanque leve', art:'knight',
+  { id:'cavaleiro', nome:'Cavaleiro', custo:3, tipo:'tropa', papel:'tanque leve', art:'knight', raridade:'comum',
     hp:1450, dmg:165, hit:1.2, range:1.0, speed:.75, sight:5.5, alvo:'chao',
     raio:.42, massa:1.4, deploy:1.0 },
-  { id:'arqueiras', nome:'Arqueiras', custo:3, tipo:'tropa', papel:'dano à distância', art:'archer',
+  { id:'arqueiras', nome:'Arqueiras', custo:3, tipo:'tropa', papel:'dano à distância', art:'archer', raridade:'comum',
     n:2, hp:260, dmg:85, hit:1.05, range:5.5, speed:.75, sight:5.8, alvo:'ambos',
     raio:.3, massa:.8, deploy:1.0, proj:'arrow' },
-  { id:'goblins', nome:'Goblins', custo:2, tipo:'tropa', papel:'enxame veloz', art:'goblin',
+  { id:'goblins', nome:'Goblins', custo:2, tipo:'tropa', papel:'enxame veloz', art:'goblin', raridade:'comum',
     n:3, hp:190, dmg:105, hit:1.05, range:.85, speed:1.25, sight:5, alvo:'chao',
     raio:.28, massa:.7, deploy:1.0 },
-  { id:'gigante', nome:'Gigante', custo:5, tipo:'tropa', papel:'só construções', art:'giant',
+  { id:'gigante', nome:'Gigante', custo:5, tipo:'tropa', papel:'só construções', art:'giant', raridade:'comum',
     hp:3100, dmg:220, hit:1.5, range:1.1, speed:.55, sight:6, alvo:'construcoes',
     raio:.58, massa:3.0, deploy:1.0 },
-  { id:'bolide', nome:'Bólide', custo:4, tipo:'feitico', papel:'estouro pesado', art:'fireball',
+  { id:'bolide', nome:'Bólide', custo:4, tipo:'feitico', papel:'estouro pesado', art:'fireball', raridade:'rara',
     feitico:{ kind:'bolide', raio:2.4, dmg:620, empurra:2.6, atraso:.55 } },
-  { id:'estalo', nome:'Estalo', custo:2, tipo:'feitico', papel:'atordoa', art:'zap',
+  { id:'estalo', nome:'Estalo', custo:2, tipo:'feitico', papel:'atordoa', art:'zap', raridade:'rara',
     feitico:{ kind:'estalo', raio:2.2, dmg:150, atordoa:.75, atraso:.1 } },
-  { id:'bombardeiro', nome:'Bombardeiro', custo:3, tipo:'tropa', papel:'limpa enxame', art:'bomber',
+  { id:'bombardeiro', nome:'Bombardeiro', custo:3, tipo:'tropa', papel:'limpa enxame', art:'bomber', raridade:'comum',
     hp:300, dmg:210, hit:1.9, range:4.5, speed:.75, sight:5, alvo:'chao',
     raio:.3, massa:.7, deploy:1.0, splash:1.5, proj:'bomb' },
-  { id:'morcegos', nome:'Morcegos', custo:2, tipo:'tropa', papel:'enxame aéreo', art:'bat',
+  { id:'morcegos', nome:'Morcegos', custo:2, tipo:'tropa', papel:'enxame aéreo', art:'bat', raridade:'comum',
     n:4, hp:75, dmg:55, hit:.95, range:.85, speed:1.40, sight:5.5, alvo:'ambos',
     raio:.24, massa:.4, deploy:1.0, ar:true },
-  { id:'princesa', nome:'Princesa da Bolha', custo:5, tipo:'tropa', papel:'prende em bolhas', art:'princess', nova:true,
+  { id:'princesa', nome:'Princesa da Bolha', custo:5, tipo:'tropa', papel:'prende em bolhas', art:'princess', nova:true, raridade:'lendaria',
     hp:600, dmg:140, hit:1.1, range:1.0, speed:.75, sight:5.5, alvo:'chao',
     raio:.34, massa:1.0, deploy:1.0,
     // Habilidade automática: a cada `recarga` s lança uma bolha a até `alcance` casas. As tropas terrestres
     // inimigas na `area` flutuam por `flutua` s, levam `estouro` quando a bolha estoura e `queda` ao cair.
-    bolha:{ recarga:5.5, primeira:1.5, alcance:5, area:1.8, flutua:2.5, estouro:180, queda:120, conjura:.55 } },
+    bolha:{ recarga:5.5, primeira:1.5, alcance:5, area:1.8, flutua:2.5, estouro:180, queda:120, conjura:.55 },
+    // Versão Herói (no espaço dourado ou curinga do baralho): habilidade dourada que o jogador ativa
+    // tocando no botão, por elixir. Prende na hora tudo o que é inimigo em volta dela, inclusive voadores.
+    heroi:{ id:'chuva', nome:'Chuva de bolhas', custo:3, recarga:14, raio:3.2,
+      descricao:'Prende numa bolha, na hora, todas as tropas inimigas em volta dela, até as que voam.' } },
 ];
 const CARD = Object.fromEntries(CARDS.map(c=>[c.id,c]));
 const POOL = CARDS.filter(c => !c.oculta);
+// Raridade (regras do dono): comum = sem magia, armas normais ou punho; rara = sem poderes, armas normais ou
+// mágicas; épica = magia e poderes com armas sobrenaturais; lendária = como a épica, com mecânicas novas;
+// evento = cartas de evento. Cada uma tem moldura e símbolo próprios (arena.css, atributo `data-rar`).
+const RARIDADES = { comum:'Comum', rara:'Rara', epica:'Épica', lendaria:'Lendária', evento:'Evento' };
+// Espaços especiais do baralho (referência do dono): 1º Evolução, 2º Herói e 3º Curinga (Evolução ou Herói).
+// Uma carta com versão Herói (`heroi`) colocada no 2º ou 3º espaço entra em campo como Herói.
+const SLOT_EVO = [0,2], SLOT_HEROI = [1,2];
+const ehHeroi = (id, deck) => !!CARD[id]?.heroi && SLOT_HEROI.includes((deck||[]).indexOf(id));
 
 const DEFAULT_DECK = ['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
 // A IA sorteia um destes: o baralho padrão ou um com a Princesa no lugar de uma carta.
@@ -263,6 +275,13 @@ function bubblePop(x,y,z){
            life:rnd(.4,.8), max:.8, r:rnd(1.6,3.2), col:'#7FD8FF', add:false, kind:'dot' });
   }
   burst3({ k:'pop', x, y, z });
+}
+function bubbleRain(x,y,R){
+  ring({ x,y, r0:R*.1, r1:R, life:.5, w:5, col:'#FFD84D', sq:.5 });
+  ring({ x,y, r0:R*.3, r1:R*1.08, life:.65, w:3, col:'#9FE6FF', sq:.5 });
+  sparks(x,y,26,'#FFE89A',260);
+  flashIt(.12,'#FFE6A0'); shakeIt(4);
+  burst3({ k:'rain', x, y, r:R });
 }
 function bubbleLand(x,y,r){
   smoke(x,y,6,'#C9B48C',38,r*.55);
@@ -1089,7 +1108,7 @@ function deployCard(cardId, sd, x, y){
     return;
   }
   const n = c.n||1;
-  if(n===1){ spawnUnit(cardId, sd, x, y); }
+  if(n===1){ spawnUnit(cardId, sd, x, y, ehHeroi(cardId, G.deck[sd]) ? {heroi:true} : {}); }
   else {
     const R = n<=2 ? TILE*.5 : TILE*.62;
     for(let i=0;i<n;i++){
@@ -1283,7 +1302,8 @@ function eachEnemyOf(sd, fn){
 
 /* — Princesa da Bolha — */
 // Tropa terrestre inimiga que pode ser presa (torres, voadores e quem já está numa bolha ficam de fora).
-const bubbleable = (e, sd) => e.kind==='unit' && e.side!==sd && !e.dead && !e.air && e.deploy<=0 && !(e.bolha>0) && !e.caindo;
+// `air`: a Chuva de bolhas do Herói prende voadores também.
+const bubbleable = (e, sd, air=false) => e.kind==='unit' && e.side!==sd && !e.dead && (air || !e.air) && e.deploy<=0 && !(e.bolha>0) && !e.caindo;
 // Ponto do alcance com mais tropas dentro da área (empate: a mais perto da Princesa).
 function bubbleTarget(u, b){
   const reach=b.alcance*TILE, area=b.area*TILE;
@@ -1320,14 +1340,23 @@ function launchBubble(u){
   pr.dur=Math.max(.05, dist(sx,sy,pr.tx,pr.ty)/P.speed);
   G.projs.push(pr);
 }
+function trapUnit(e, b, sd){
+  Object.assign(e, { bolha:b.flutua, bolhaMax:b.flutua, bolhaPop:b.estouro, bolhaQueda:b.queda, bolhaDe:sd, bolhaBase:e.z||0,
+    attackWindup:0, attackTarget:null, target:null, stun:0, cast:0, castAt:null, px:0, py:0 });
+}
 function trapInBubble(p){
   const b=p.bolha, area=b.area*TILE;
   bubbleCast(p.x, p.y, area);
-  for(const e of G.units){
-    if(!bubbleable(e,p.side) || dist(p.x,p.y,e.x,e.y) > area + (e.r||0)*.5) continue;
-    Object.assign(e, { bolha:b.flutua, bolhaMax:b.flutua, bolhaPop:b.estouro, bolhaQueda:b.queda, bolhaDe:p.side,
-      attackWindup:0, attackTarget:null, target:null, stun:0, cast:0, castAt:null, px:0, py:0 });
-  }
+  for(const e of G.units)
+    if(bubbleable(e,p.side) && dist(p.x,p.y,e.x,e.y) <= area + (e.r||0)*.5) trapUnit(e, b, p.side);
+}
+// Herói Princesa, "Chuva de bolhas": prende na hora, numa bolha, os inimigos em volta dela (até voadores).
+const bubbleRainTargets = u => G.units.filter(e=>bubbleable(e,u.side,true) && dist(u.x,u.y,e.x,e.y) <= u.card.heroi.raio*TILE + (e.r||0)*.5);
+function heroBubbleRain(u){
+  bubbleRain(u.x, u.y, u.card.heroi.raio*TILE);
+  for(const e of bubbleRainTargets(u)) trapUnit(e, u.card.bolha, u.side);
+  u.cast=.45; u.castAt=null;
+  AU.unit(u.card.id, 'cast', 'magic', 1); AU.sfx('bell', .6);
 }
 // Presa na bolha: sobe e flutua sem andar nem atacar; a bolha estoura (dano) e ela cai (dano ao bater no chão).
 function stepTrapped(u, dt){
@@ -1335,7 +1364,7 @@ function stepTrapped(u, dt){
   if(u.bolha>0){
     u.bolha=Math.max(0, u.bolha-dt);
     const up=Math.min(1, (u.bolhaMax-u.bolha)/.6);
-    u.z = ease(up)*92 + Math.sin(u.ph*2.2)*4*up;
+    u.z = (u.bolhaBase||0) + ease(up)*92 + Math.sin(u.ph*2.2)*4*up;
     if(u.bolha===0){
       bubblePop(u.x, u.y, u.z); AU.sfx('pop', 1);
       hurt(u, u.bolhaPop, u.bolhaDe);
@@ -1343,8 +1372,10 @@ function stepTrapped(u, dt){
     }
     return;
   }
-  u.vz=(u.vz||0)-1500*dt; u.z=Math.max(0, u.z+u.vz*dt);
-  if(u.z===0){
+  // cai até o chão (voador: até a altura do voo)
+  const floor=u.bolhaBase||0;
+  u.vz=(u.vz||0)-1500*dt; u.z=Math.max(floor, u.z+u.vz*dt);
+  if(u.z===floor){
     u.caindo=false; u.vz=0;
     bubbleLand(u.x, u.y, u.r); AU.sfx('punch', .45);
     hurt(u, u.bolhaQueda, u.bolhaDe);
@@ -1661,6 +1692,8 @@ const CHAMP_ABILITIES = {
   ],
   boneca:[{id:'invocar',name:'Invocar Holograma',cost:1,cd:4.5,description:'Invoca um holograma. Apenas um pode estar vivo por Boneca.'}]
 };
+// Habilidades de Herói vêm da própria carta e só valem para a unidade que entrou como Herói.
+for(const c of CARDS)if(c.heroi)(CHAMP_ABILITIES[c.id]||=[]).push({id:c.heroi.id,name:c.heroi.nome,cost:c.heroi.custo,cd:c.heroi.recarga,description:c.heroi.descricao,heroi:true});
 function championContext(u){
   const alvo=(u.target&&!u.target.dead&&u.target.alive!==false)?u.target:alvoPerto(u,u.sight*1.4);
   const perto=alvoPerto(u,2.4*TILE),cl=aglomerado(u.side,u.x,u.y,5.2*TILE);
@@ -1671,14 +1704,16 @@ function championAbilityState(u,id){
   const spec=CHAMP_ABILITIES[u?.card?.id]?.find(a=>a.id===id);
   const cd=Math.max(0,u?.abilityCD?.[id]||0);
   let reason='';
-  if(!spec||!u||u.dead||u.hp<=0)reason='Campeão fora de campo';
+  if(!spec||!u||u.dead||u.hp<=0||spec.heroi&&!u.heroi)reason=spec?.heroi?'Herói fora de campo':'Campeão fora de campo';
   else if(G.state!=='battle')reason=G.state==='paused'?'Partida pausada':'Partida encerrada';
   else if(u.spawnT>0||u.deploy>0)reason='Entrando em campo';
   else if(u.stun>0||u.desenho>0)reason='Atordoado';
+  else if(u.bolha>0||u.caindo)reason='Presa numa bolha';
   else if(cd>0)reason='Recarga · '+cd.toFixed(1)+'s';
   else if(G.elixir[u.side]<spec.cost)reason='Elixir insuficiente';
   const context=spec?championContext(u):{};
   if(!reason){
+    if(id==='chuva'&&!bubbleRainTargets(u).length)reason='Sem inimigos perto';else
     if(id==='invocar'&&context.pet)reason='Holograma em campo';
     else if(id==='imaginacao'&&!(context.cl?.n>=3))reason='Precisa de 3 inimigos';
     else if(id==='realizacao'&&!(context.alvo?.maxHp>900))reason='Sem alvo forte';
@@ -1703,7 +1738,7 @@ function activateChampionAbility(sd,unitId,id){
     ring({x:u.x,y:u.y-40,r0:6,r1:TILE*1.2,life:.45,w:3,col:side[sd].main,sq:.6});AU.sfx('magic',.9);
   }else if(id==='bomba'){
     G.fields.push({kind:'nuke',sd,x:context.alvo.x,y:context.alvo.y,t:0,dur:1.35,s:{raio:3,dmg:540}});AU.sfx('bell',.7);
-  }
+  }else if(id==='chuva')heroBubbleRain(u);
   const log=sd==='ally'?(G.allyLog||=[]):G.foeLog;
   log.unshift({id:u.card.id,ability:id,name:spec.name,cost:spec.cost,t:G.t});log.length=Math.min(5,log.length);
   if(sd==='ally')toast(spec.name+' ativada',T.gold);
@@ -1713,11 +1748,13 @@ function stepAbility(u, dt){
   const c = u.card;
   if(u.deploy>0 || u.stun>0 || (u.desenho||0)>0) return;
   if(c.bw){ stepBW(u, dt); return; }
-  if(c.campeao){
+  if(c.campeao||u.heroi){
     for(const k in u.abilityCD)u.abilityCD[k]=Math.max(0,u.abilityCD[k]-dt);
     if(u.side==='foe'&&!NET.active){
       u.champTry=(u.champTry||0)-dt;
-      if(u.champTry<=0){u.champTry=.6;for(const a of CHAMP_ABILITIES[c.id]||[])if(championAbilityState(u,a.id).ready){activateChampionAbility(u.side,u.id,a.id);break;}}
+      // A IA só gasta a Chuva de bolhas quando pega dois inimigos ou um tanque.
+      const vale=a=>a.id!=='chuva'||(t=>t.length>=2||t.some(e=>e.maxHp>=1000))(bubbleRainTargets(u));
+      if(u.champTry<=0){u.champTry=.6;for(const a of CHAMP_ABILITIES[c.id]||[])if(championAbilityState(u,a.id).ready&&vale(a)){activateChampionAbility(u.side,u.id,a.id);break;}}
     }
     return;
   }
@@ -3132,7 +3169,8 @@ function legacyCanvasRender(t){
 }
 
 /* ── 10. Interface ──────────────────────────────────────────────────── */
-function paintCard(cvs, card, teamKey='ally'){
+// `versao`: 'heroi' desenha o retrato da versão Herói com fundo dourado.
+function paintCard(cvs, card, teamKey='ally', versao=''){
   const w = Math.max(40, cvs.clientWidth || 96), h = Math.max(34, cvs.clientHeight || 84);
   const d = Math.min(2, window.devicePixelRatio||1);
   cvs.width = w*d; cvs.height = h*d;
@@ -3141,7 +3179,8 @@ function paintCard(cvs, card, teamKey='ally'){
   const C = side[teamKey];
   let portrait = null;
   const bg = g.createRadialGradient(w*.5,h*.86,2,w*.5,h*.5,h*1.15);
-  bg.addColorStop(0, rgba(C.main,.2)); bg.addColorStop(.55, 'rgba(16,22,32,.9)'); bg.addColorStop(1,'#0B1017');
+  if(versao==='heroi'){ bg.addColorStop(0,'rgba(255,214,90,.55)'); bg.addColorStop(.55,'rgba(70,46,12,.92)'); bg.addColorStop(1,'#1E1406'); }
+  else { bg.addColorStop(0, rgba(C.main,.2)); bg.addColorStop(.55, 'rgba(16,22,32,.9)'); bg.addColorStop(1,'#0B1017'); }
   g.fillStyle=bg; g.fillRect(0,0,w,h);
   g.fillStyle='rgba(0,0,0,.32)';
   g.beginPath(); g.ellipse(w*.5, h*.87, w*.3, h*.05, 0,0,TAU); g.fill();
@@ -3149,7 +3188,7 @@ function paintCard(cvs, card, teamKey='ally'){
     g.save(); g.translate(w*.5, h*.5);
     SPELL_ART[card.art](g, Math.min(w,h)*.86);
     g.restore();
-  } else if(window.cardPortrait3D && (portrait = window.cardPortrait3D(card.art, teamKey))){
+  } else if(window.cardPortrait3D && (portrait = window.cardPortrait3D(card.art, teamKey, versao==='heroi'))){
     // Retrato do modelo 3D (arena3d.bundle.js); sem WebGL cai na arte 2D abaixo.
     const ph = h*1.02, pw = ph*portrait.width/portrait.height;
     g.drawImage(portrait, (w-pw)/2, h*.97-ph, pw, ph);
@@ -3161,6 +3200,19 @@ function paintCard(cvs, card, teamKey='ally'){
     g.restore();
   }
   g.fillStyle='rgba(255,255,255,.05)'; g.fillRect(0,0,w,1);
+}
+// Símbolo da raridade (comum não tem) e a gema das versões Evolução/Herói/Curinga, como nas referências do dono.
+const RAR_SVG = {
+  rara:'<path d="M10 1.5 19 17.5H1z" fill="#3f9cff" stroke="#0b2f73" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 6 14.6 14.5H5.4z" fill="#a9d8ff"/>',
+  epica:'<path d="M10 .8 19.2 10 10 19.2.8 10z" fill="#b25cff" stroke="#36096a" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 4.2 15.8 10 10 15.8 4.2 10z" fill="#e3c2ff"/><path d="M10 4.2 15.8 10H4.2z" fill="#fff" opacity=".35"/>',
+  lendaria:'<path d="M10 .8l2.8 6 6.4.6-4.9 4.3 1.5 6.4L10 14.8l-5.8 3.3 1.5-6.4L.8 7.4l6.4-.6z" fill="#ffc531" stroke="#7a4300" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 4.6l1.6 3.6 3.8.3-2.9 2.6" fill="none" stroke="#fff3b0" stroke-width="1.4" stroke-linecap="round"/>',
+  evento:'<circle cx="10" cy="8" r="6.2" fill="#ff4d5e" stroke="#7a0717" stroke-width="1.6"/><circle cx="10" cy="8" r="3" fill="#ffd0d4"/><path d="M6 12.5 4 19l3.2-1.6L9 19.6l1-5.6M14 12.5l2 6.5-3.2-1.6L11 19.6l-1-5.6" fill="#e2263b" stroke="#7a0717" stroke-width="1.2" stroke-linejoin="round"/>'
+};
+const rarityMark = r => RAR_SVG[r] ? `<i class="rarMark" aria-hidden="true"><svg viewBox="0 0 20 20">${RAR_SVG[r]}</svg></i>` : '';
+// Marcas por cima de uma carta: símbolo, brilho da lendária e gema da versão.
+function cardMarks(c, versao=''){
+  return rarityMark(c.raridade) + (c.raridade==='lendaria' || versao==='heroi' ? '<i class="shine" aria-hidden="true"></i>' : '') +
+         (versao ? `<i class="gemTab ${versao}" aria-hidden="true"></i>` : '');
 }
 function crownCanvas(el, col){
   const d = Math.min(2, window.devicePixelRatio||1);
@@ -3229,10 +3281,10 @@ function buildHandUI(){
     const el = document.createElement('button');
     el.className='slot'; el.type='button';
     el.innerHTML = '<canvas></canvas><div class="nm"></div><div class="cost mono"></div>' +
-                   '<div class="lock">em campo</div>';
+                   '<div class="lock">em campo</div><span class="marks"></span>';
     hand.appendChild(el);
     const o = { el, cvs:el.querySelector('canvas'), nm:el.querySelector('.nm'),
-                cost:el.querySelector('.cost'), id:null };
+                cost:el.querySelector('.cost'), marks:el.querySelector('.marks'), id:null };
     slots.push(o);
     el.addEventListener('pointerdown', ev => grabCard(i, ev));
     el.addEventListener('keydown', ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();grabCard(i,{clientX:cv.getBoundingClientRect().left+VW/2,clientY:cv.getBoundingClientRect().top+VH*.75,preventDefault(){}});}});
@@ -3244,17 +3296,20 @@ function refreshHand(force){
     const s = slots[i], id = G.hand.ally[i];
     if(!s) continue;
     if(s.id !== id || force){
-      s.id = id; const c = CARD[id];
+      s.id = id; const c = CARD[id], versao = ehHeroi(id, G.deck.ally) ? 'heroi' : '';
       s.nm.textContent = c.nome; s.cost.textContent = c.custo;
-      s.el.setAttribute('aria-label',`${i+1}. ${c.nome}, ${c.custo} de elixir`);
+      s.el.setAttribute('aria-label',`${i+1}. ${c.nome}${versao?' Herói':''}, ${c.custo} de elixir`);
       s.el.classList.toggle('champ', !!c.campeao);
-      paintCard(s.cvs, c, 'ally');
+      s.el.dataset.rar = c.raridade||'comum'; s.el.dataset.versao = versao; s.marks.innerHTML = cardMarks(c, versao);
+      paintCard(s.cvs, c, 'ally', versao);
     }
   }
   const nx = $('nextSlot');
   if(nx.dataset.id !== G.next.ally || force){
     nx.dataset.id = G.next.ally;
-    paintCard(nx.querySelector('canvas'), CARD[G.next.ally], 'ally');
+    const c = CARD[G.next.ally], versao = ehHeroi(G.next.ally, G.deck.ally) ? 'heroi' : '';
+    nx.dataset.rar = c.raridade||'comum'; nx.dataset.versao = versao;
+    paintCard(nx.querySelector('canvas'), c, 'ally', versao);
   }
   const q = G.cycle.ally.map(id=>id).join();
   const qr = $('queueRow');
@@ -3397,6 +3452,7 @@ addEventListener('keydown', ev=>{
 
 /* — construtor de baralho — */
 let deckSel = ['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
+let DECK_PICK = null;      // espaço do baralho escolhido para trocar de lugar ou receber uma carta da coleção
 const LS = 'ponte-coroas-deck';
 try { const saved = JSON.parse(localStorage.getItem(LS)||'null');
       if(Array.isArray(saved) && saved.length===8 && new Set(saved).size===8 && saved.every(id=>CARD[id]&&!CARD[id].oculta)) deckSel = saved; } catch(e){}
@@ -3406,17 +3462,24 @@ function buildPool(){
   const pool = $('pool'); pool.innerHTML='';
   for(const c of POOL){
     const b = document.createElement('button');
-    b.className = 'pcard' + (deckSel.includes(c.id)?' sel':'') + (c.campeao?' champ':'');
+    b.className = 'pcard' + (deckSel.includes(c.id)?' sel':'') + (c.campeao?' champ':''); b.dataset.rar = c.raridade||'comum';
     b.type='button'; b.dataset.id = c.id; b.setAttribute('aria-label',`${c.nome}, ${c.custo} de elixir`);
     const locked=!PROGRESS.allowed(c.id);b.classList.toggle('champLocked',locked);b.disabled=locked;
     b.innerHTML = `<canvas></canvas><div class="nm">${c.nome}</div><div class="rl">${c.papel}</div>
                    <div class="cost mono">${c.custo}</div><div class="chk">✓</div>` +
                   (c.campeao ? '<div class="cbadge">'+(locked?'🔒 Bloqueado':'Campeão')+'</div>' : '') +
-                  (c.nova ? '<div class="nova">Nova!</div>' : '');
+                  (c.nova ? '<div class="nova">Nova!</div>' : '') + cardMarks(c) +
+                  '<span class="infoBtn" aria-hidden="true" title="Detalhes">i</span>';
         pool.appendChild(b);
-    b.addEventListener('click', ()=>{
+    b.addEventListener('click', ev=>{
       AU.init(); AU.sfx('ui');
+      if(ev.target.closest('.infoBtn')){ openCardInfo(c.id); return; }
+      // Com um espaço do baralho escolhido, a carta da coleção entra no lugar dele.
+      if(DECK_PICK!==null && deckSel[DECK_PICK] && !deckSel.includes(c.id)){
+        deckSel = deckSel.map((id,i)=>i===DECK_PICK?c.id:id); DECK_PICK = null; syncDeck(); return;
+      }
       // Toque marca ou desmarca. Com 8 marcadas, é preciso tirar uma antes de pôr outra.
+      DECK_PICK = null;
       if(deckSel.includes(c.id)) deckSel = deckSel.filter(id=>id!==c.id);
       else if(deckSel.length < 8) deckSel = [...deckSel, c.id];
       else {
@@ -3436,7 +3499,7 @@ function syncDeck(){
   const n = deckSel.length,eligible=deckSel.every(id=>PROGRESS.allowed(id))&&deckSel.filter(id=>CARD[id]?.campeao).length<=1;
   const cnt = $('deckCnt'); cnt.textContent = `${n} / 8`; cnt.classList.toggle('ok', n===8);
   const avg = n ? (deckSel.reduce((s,id)=>s+CARD[id].custo,0)/n) : 0;
-  $('avgCost').textContent = n ? `custo médio ${avg.toFixed(1)}` : 'custo médio —';
+  $('avgCost').textContent = avg.toFixed(1);
   $('startBtn').disabled = n!==8||!eligible;
   $('onlineBtn').disabled = n!==8||!eligible;
   showDeckPreview();
@@ -3492,7 +3555,7 @@ function advanceSimulation(now){
         stepMatch(STEP);
         if(!NET.active)AI.step(STEP);
         for(const u of G.units)if(!u.dead)stepUnit(u,STEP);
-        for(const u of G.units)if(!u.dead&&(u.card.hab||u.card.campeao))stepAbility(u,STEP);
+        for(const u of G.units)if(!u.dead&&(u.card.hab||u.card.campeao||u.heroi))stepAbility(u,STEP);
         separate(STEP);
         for(const tw of G.towers)stepTower(tw,STEP);
         stepProjs(STEP);stepFields(STEP);

@@ -311,7 +311,7 @@ export class Arena3D{
 
  /* ── Tropas e torres ───────────────────────────────────────────────────────────────────── */
  addEntity(key,e){
-  const isTower=e.kind==='tower',model=isTower?towerModel(e.side,e.king):unitModel(e.card.art,e.side);this.scene.add(model);
+  const isTower=e.kind==='tower',model=isTower?towerModel(e.side,e.king):unitModel(e.card.art,e.side,!!e.heroi);this.scene.add(model);
   // Tropa não entra no mapa de sombra (ele é estático); a sombra dela é a redonda das Marks.
   if(!isTower)model.traverse(o=>{o.castShadow=false;});else this.renderer.shadowMap.needsUpdate=true;
   const bar=this.label(key,model,e);const entry={model,bar,oldX:e.x,oldY:e.y,angle:e.side==='ally'?Math.PI:0,rig:{},landed:!(e.deploy>0),alive:e.alive!==false};
@@ -340,6 +340,9 @@ export class Arena3D{
     this.bubbleOf(n,e,m,time,dt);
    }else if(n.rig.turret){n.rig.turret.rotation.y=Math.PI/2-(e.aim||0);const k=e.recoil||0;n.rig.turret.position.set(Math.cos(e.aim||0)*-k*.16,n.turretY,Math.sin(e.aim||0)*-k*.16);}
    n.oldX=e.x;n.oldY=e.y;
+   // Herói: anel dourado em volta do anel do time e brilhos dourados subindo de vez em quando.
+   if(!tower&&e.heroi){const r=(e.r||24)/64;this.feet.add(m.position.x,.045,m.position.z,r*2.15,'#ffd84d');
+    if(time-(n.sparkAt||0)>.45){n.sparkAt=time;const a=Math.random()*TAU;this.spawn({kind:'spark',x:e.x+Math.cos(a)*r*64,y:e.y+Math.sin(a)*r*64,h:.2+Math.random()*.6,vx:0,vz:0,vy:1.1,g:0,c:'#ffd84d',s:.07,life:.7});}}
    if(!tower){const r=(e.r||24)/64;if(!e.air)this.feet.add(m.position.x,.05,m.position.z,r*1.6,palette[e.side]);this.blobs?.add(m.position.x,.035,m.position.z,r*(e.air?1.1:1.5),'#1d3812');}
    const show=tower||e.hp<e.maxHp;n.bar.el.hidden=!show;
    if(show){m.getWorldPosition(v3);v3.y+=(m.userData.height||2.5)+.17;v3.project(this.camera);n.bar.el.style.transform=`translate(${(v3.x*.5+.5)*this.w}px,${(-v3.y*.5+.5)*this.h}px) translate(-50%,-100%)`;const value=Math.ceil(Math.max(0,e.hp));if(n.bar.value!==value){n.bar.value=value;n.bar.text.textContent=tower?value:'';n.bar.fill.style.transform=`scaleX(${clamp(e.hp/e.maxHp,0,1)})`;n.bar.fill.style.background=palette[e.side];}n.bar.el.hidden=Math.abs(v3.x)>1||Math.abs(v3.y)>1;}
@@ -399,6 +402,14 @@ export class Arena3D{
    this.spawn({kind:'shock',x:X,y:Y,r0:R*.2,r1:R*1.1,life:.4,c:'#9fe6ff'});
    for(let i=0;i<n(8);i++){const a=i/8*TAU;this.spawn({kind:'drop',x:X+Math.cos(a)*R*48,y:Y+Math.sin(a)*R*48,h:.1,vx:Math.cos(a)*.8,vz:Math.sin(a)*.8,vy:rand(2.4,3.6),r:.05,c:'#bff1ff',life:.6,g:9});}
   }else if(b.k==='land'){this.dust(X,Y,(b.r||24)/64);}
+  else if(b.k==='rain'){
+   // Chuva de bolhas do Herói: clarão dourado, ondas dourada e azul e bolhas subindo em toda a área.
+   const R=(b.r||200)/64;
+   this.spawn({kind:'flash',x:X,y:Y,h:1,r:.9,life:.18,c:'#fff1b0'});
+   this.spawn({kind:'shock',x:X,y:Y,r0:.3,r1:R,life:.5,c:'#ffd84d'});this.spawn({kind:'shock',x:X,y:Y,r0:.2,r1:R*.8,life:.6,c:'#9fe6ff'});
+   for(let i=0;i<n(16);i++){const a=Math.random()*TAU,d=Math.sqrt(Math.random())*R*64;this.spawn({kind:'drop',x:X+Math.cos(a)*d,y:Y+Math.sin(a)*d,h:.1,vx:0,vz:0,vy:rand(2.5,4.5),g:3,r:rand(.06,.12),c:i%3?'#bff1ff':'#ffffff',life:rand(.6,.9)});}
+   for(let i=0;i<n(8);i++){const a=i/8*TAU;this.spawn({kind:'spark',x:X,y:Y,h:1,vx:Math.cos(a)*2.4,vz:Math.sin(a)*2.4,vy:1.5,g:4,c:'#ffd84d',s:.1,life:.5});}
+  }
   else if(b.k==='chip'){
    // Torre atingida: lascas de pedra e um pouco de poeira saindo do alto.
    const h=b.king?2.3:1.9;
@@ -584,8 +595,8 @@ window.createArena3D=options=>new Arena3D(options);
    Um renderizador pequeno e separado fotografa cada tropa uma vez numa pose de ação.
    Sem WebGL devolve null e o engine continua com a arte 2D. */
 const portraits=new Map();let portraitKit=null;
-function cardPortrait(art,side='ally'){
- const key=art+':'+side;if(portraits.has(key))return portraits.get(key);
+function cardPortrait(art,side='ally',hero=false){
+ const key=art+':'+side+(hero?':heroi':'');if(portraits.has(key))return portraits.get(key);
  let out=null;
  try{
   if(!portraitKit){
@@ -595,7 +606,7 @@ function cardPortrait(art,side='ally'){
    const scene=new T.Scene();scene.add(new T.HemisphereLight(0xffffff,0x7aa05a,1.7));const sun=new T.DirectionalLight(0xfff0d8,2.4);sun.position.set(2,4,5);scene.add(sun);
    portraitKit={renderer,scene,camera:new T.PerspectiveCamera(26,220/240,.1,50)};
   }
-  const {renderer,scene,camera}=portraitKit,model=unitModel(art,side);scene.add(model);
+  const {renderer,scene,camera}=portraitKit,model=unitModel(art,side,hero);scene.add(model);
   const rig={};for(const name of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop'])rig[name]=model.getObjectByName(name);
   // Pose de ação: meio da preparação do ataque, virado 3/4 para a câmera.
   const n={model,rig,oldX:0,oldY:0,angle:.45},e={id:3,x:0,y:0,heading:Math.PI/2-.45,ph:1.2,moving:false,card:{art,deploy:1},attackWindup:.07,attackPrep:.16,atk:0,hurt:0,deploy:0,air:art==='bat'};

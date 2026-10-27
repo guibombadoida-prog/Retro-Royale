@@ -72,6 +72,7 @@ for(const art of ['knight','archer','goblin','giant','bomber','bat','princess'])
  if(rig.prop){e.atk=1;animateRig(n,e,1,1/60);assert.ok(rig.prop.scale.x<.01,'a bomba some ao ser lançada');}
  for(let i=0;i<30;i++)animateDeath(n,1/60);assert.ok(n.deathTime>.42);assert.ok(Math.abs(model.rotation.z)>1);finite(model);
 }
+{const hero=unitModel('princess','foe',true);assert.ok(triangles(hero)<4500,'Herói Princesa tem '+triangles(hero)+' triângulos');assert.ok(hero.getObjectByName('rightArm')&&hero.getObjectByName('head'));}
 for(const side of ['ally','foe'])for(const king of [true,false]){const model=towerModel(side,king);assert.ok(model.getObjectByName('turret'));assert.ok(triangles(model)<7500);let meshes=0;model.traverse(c=>{if(c.isMesh)meshes++;});assert.ok(meshes<=3);}
 // Duas tropas iguais não dividem esqueleto (cada uma anima sozinha).
 {const a=unitModel('knight','ally'),b=unitModel('knight','ally'),bones=m=>{let s;m.traverse(c=>{if(c.isSkinnedMesh)s=c.skeleton;});return s.bones;};assert.ok(bones(a).every(x=>!bones(b).includes(x)));assert.equal(bones(a)[0],a);}
@@ -146,3 +147,27 @@ run(`G.units.length=0;G.projs.length=0;globalThis.kn=spawnUnit('cavaleiro','foe'
 assert.ok(run('kn.z')>60&&run('lost')>=run('tw.dmg')*2,'a torre acerta a tropa flutuando na bolha');
 console.log('Air targets: every tower and archer shot hits a bat at any height of its flight and a troop floating in a bubble.');
 console.log('Princesa da Bolha: automatic bubble after cooldown, ground enemies float without moving or attacking, 180 pop + 120 fall damage, air units spared, 5.5 s recharge, state and effects reach guests, 8-of-9 deck validation.');
+
+// Herói Princesa: só no 2º (Herói) ou 3º (Curinga) espaço do baralho; "Chuva de bolhas" custa 3 de elixir,
+// prende na hora os inimigos em volta (até voadores) e tem recarga; a Princesa normal não tem o botão.
+run(`NET.active=false;NET.role=null;startMatch(testNormal,1);G.units.length=0;G.projs.length=0;G.state='battle';
+ G.deck.ally=['cavaleiro','princesa','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];deployCard('princesa','ally',576,1000);
+ globalThis.hp=G.units.at(-1);G.deck.ally=['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];deployCard('princesa','ally',300,1000);
+ globalThis.np=G.units.at(-1);for(const u of [hp,np]){u.deploy=0;u.static=true;}`);
+assert.equal(run('hp.heroi'),true,'no espaço dourado ela entra como Herói');assert.ok(!run('np.heroi'),'no espaço de Evolução ela é a Princesa normal');
+assert.ok(run(`['princesa','cavaleiro','arqueiras'].map((id,i)=>ehHeroi('princesa',i===2?['a','b','princesa']:i===1?['a','princesa']:['princesa'])).join()==='false,true,true'`),'Curinga também vale');
+run(`globalThis.kn=spawnUnit('cavaleiro','foe',576,880,{deploy:0});globalThis.bt=spawnUnit('morcegos','foe',640,900,{deploy:0});globalThis.far=spawnUnit('gigante','foe',576,500,{deploy:0});
+ for(const u of [kn,bt,far])u.static=true;G.elixir.ally=10;`);
+assert.equal(run(`championAbilityState(np,'chuva').reason`),'Herói fora de campo');
+assert.equal(run(`activateChampionAbility('ally',hp.id,'chuva')`),true);assert.equal(Math.round(run('G.elixir.ally')),7,'custa 3 de elixir');
+assert.ok(run('kn.bolha>0&&bt.bolha>0'),'prende tropa no chão e voadora');assert.ok(!run('far.bolha'),'fora do raio não é preso');
+assert.equal(run(`activateChampionAbility('ally',hp.id,'chuva')`),false,'recarga');assert.ok(run(`championAbilityState(hp,'chuva').reason.startsWith('Recarga')`));
+run('for(let i=0;i<60*4;i++){for(const u of G.units)if(!u.dead)stepUnit(u,1/60);}');
+assert.ok(run('bt.dead||(!bt.caindo&&!(bt.bolha>0)&&bt.z>=40)'),'o morcego volta para a altura do voo');
+assert.equal(JSON.parse(JSON.stringify(run("netPick([hp],'unit')[0]"))).heroi,true,'o convidado sabe que é Herói');assert.ok(run(`NET_FX.includes('bubbleRain')`));
+// IA com a Princesa Herói (baralho com ela no Curinga) usa a habilidade quando pega dois inimigos.
+run(`G.units.length=0;G.deck.foe=['cavaleiro','arqueiras','princesa','gigante','bolide','estalo','bombardeiro','morcegos'];deployCard('princesa','foe',576,600);
+ globalThis.fp=G.units.at(-1);fp.deploy=0;fp.static=true;G.elixir.foe=10;for(const [x,y] of [[560,700],[600,700]]){const u=spawnUnit('cavaleiro','ally',x,y,{deploy:0});u.static=true;}
+ for(let i=0;i<60*1.2;i++)for(const u of G.units)if(!u.dead&&u.heroi)stepAbility(u,1/60);`);
+assert.ok(run('fp.heroi&&G.units.filter(u=>u.side==="ally"&&u.bolha>0).length===2'),'a IA usa a Chuva de bolhas');
+console.log('Hero Princesa: hero only in the gold or wildcard deck slot, Bubble Rain costs 3 elixir, traps ground and air enemies in range, has a cooldown, normal Princesa cannot use it, guests see the hero flag, AI uses it.');

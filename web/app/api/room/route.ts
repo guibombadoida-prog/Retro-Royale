@@ -2,7 +2,7 @@ import { getRoomDb } from '@/db';
 import { profileFor } from '@/lib/player-profile';
 
 const CARDS = new Set(['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos','princesa']);
-const ABILITIES = new Set(['bomba','imaginacao','nucleo','realizacao','esboco','rascunho','tracado','invocar']);
+const ABILITIES = new Set(['bomba','imaginacao','nucleo','realizacao','esboco','rascunho','tracado','invocar','chuva']);
 const MODES: Record<string, readonly [number,number]> = {'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3v1':[3,1]};
 type Room = {code:string;mode:string;status:string;expires:number;snapshot:string|null;snapshot_seq:number};
 type Player = {slot:number;team:number;name:string;token_hash:string;deck:string;ready:number;seen:number;offer:string|null;answer:string|null;profile_hash:string|null};
