@@ -130,4 +130,19 @@ assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante',
 assert.equal(run(`PROGRESS.sanitize(['princesa','princesa','goblins','gigante','bolide','estalo','bombardeiro','morcegos'])[0]`),'cavaleiro','repetida volta ao padrão');
 assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','reibombado'])[0]`),'cavaleiro','carta removida volta ao padrão');
 assert.ok(run(`FOE_DECKS.some(d=>d.includes('princesa'))&&FOE_DECKS.every(d=>PROGRESS.sanitize(d).join()===d.join())`));
+// Tiros (torre e Arqueiras) acertam alvos no ar: morcego em qualquer altura do voo e tropa presa na bolha.
+// Antes o acerto comparava o ponto no ar com o centro no chão e o morcego no alto do voo ficava imortal.
+run(`G.units.length=0;G.projs.length=0;globalThis.tw=G.towers.find(t=>t.side==='ally'&&!t.king);tw.alive=true;tw.active=true;tw.atkT=0;
+ globalThis.bat=spawnUnit('morcegos','foe',tw.x,tw.y-260,{deploy:0});bat.static=true;bat.maxHp=bat.hp=1e9;
+ globalThis.arc=spawnUnit('arqueiras','ally',tw.x+60,tw.y-120,{deploy:0});arc.static=true;
+ globalThis.shots=0;globalThis.hits=0;globalThis.realHurt=hurt;globalThis.realShoot=shoot;
+ hurt=(e,d,f,o)=>{if(e===bat)hits++;return realHurt(e,d,f,o);};shoot=(a,t,...r)=>{if(t===bat)shots++;return realShoot(a,t,...r);};
+ for(let i=0;i<60*15;i++){for(const u of G.units)if(!u.dead)stepUnit(u,1/60);stepTower(tw,1/60);stepProjs(1/60);}
+ for(let i=0;i<120;i++)stepProjs(1/60);hurt=realHurt;shoot=realShoot;`);
+assert.ok(run('shots')>20,'torre e Arqueiras atiram no morcego');assert.equal(run('hits'),run('shots'),'todo tiro no morcego acerta');
+run(`G.units.length=0;G.projs.length=0;globalThis.kn=spawnUnit('cavaleiro','foe',tw.x,tw.y-240,{deploy:0});kn.static=true;
+ Object.assign(kn,{bolha:2.5,bolhaMax:2.5,bolhaPop:0,bolhaQueda:0,bolhaDe:'ally'});tw.atkT=0;const hp0=kn.hp;
+ for(let i=0;i<60*2;i++){stepUnit(kn,1/60);stepTower(tw,1/60);stepProjs(1/60);}globalThis.lost=hp0-kn.hp;`);
+assert.ok(run('kn.z')>60&&run('lost')>=run('tw.dmg')*2,'a torre acerta a tropa flutuando na bolha');
+console.log('Air targets: every tower and archer shot hits a bat at any height of its flight and a troop floating in a bubble.');
 console.log('Princesa da Bolha: automatic bubble after cooldown, ground enemies float without moving or attacking, 150 pop + 100 fall damage, air units spared, 7 s recharge, state and effects reach guests, 8-of-9 deck validation.');

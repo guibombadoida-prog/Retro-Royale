@@ -114,9 +114,10 @@ const FOE_DECKS = [DEFAULT_DECK,
 /* ── 3. VFX: partículas, anéis, arcos, decalques, números ────────────── */
 const FX = {
   parts:[], rings:[], bolts:[], texts:[], decals:[], trails:[],
+  bursts:[],          // eventos para os efeitos 3D (arena3d.js consome a cada quadro): golpe, explosão, entrada...
   shake:0, shakeDecay:6, flash:0, flashColor:'#fff', slow:1, slowT:0,
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
-  clear(){ this.parts.length=0; this.rings.length=0; this.bolts.length=0;
+  clear(){ this.parts.length=0; this.rings.length=0; this.bolts.length=0; this.bursts.length=0;
            this.texts.length=0; this.decals.length=0; this.trails.length=0;
            this.shake=0; this.flash=0; this.slow=1; this.slowT=0; }
 };
@@ -144,10 +145,14 @@ function bolt(x1,y1,x2,y2,o={}){
   }
   FX.bolts.push({ seg, life:o.life||.16, max:o.life||.16, w:o.w||2.4, col:o.col||'#BFF0FF' });
 }
-function dmgText(x,y,v,col){
+// Número de dano: (x,y) no chão e h = altura em px onde ele aparece (acima da barra de vida).
+function dmgText(x,y,v,col,h=40){
   if(FX.texts.length>40) return;
-  FX.texts.push({ x, y, v:Math.round(v), col, life:.85, max:.85, vy:-46, vx:rnd(-16,16) });
+  FX.texts.push({ x, y, h, v:Math.round(v), col, life:.85, max:.85, vy:0, vx:rnd(-8,8) });
 }
+// Pede um efeito 3D ao arena3d.js. Só é chamado de dentro das funções de efeito desta seção, que o
+// convidado do online repete (NET_FX), então ele vê os mesmos efeitos.
+function burst3(o){ if(FX.bursts.length < 80) FX.bursts.push(o); }
 function decal(x,y,r,col,a=.5,life=14){ 
   if(FX.decals.length>90) FX.decals.shift();
   FX.decals.push({ x,y,r,col,a,life,max:life, seed:rnd(TAU) });
@@ -193,10 +198,14 @@ function shards(x,y,n,col,spd=150){
            rot:rnd(TAU), vr:rnd(-9,9) });
   }
 }
-function hitSpark(x,y,col,ang){
-  sparks(x,y,7,col,210,{a:ang,spread:.85});
-  ring({ x,y, r0:2, r1:20, life:.16, w:2, col, sq:.55 });
+// Golpe que acertou: (x,y) no chão, z = altura do ponto do corpo; `big` para pancadas pesadas.
+function hitSpark(x,y,col,ang,big=false,z=0){
+  sparks(x,y,big?12:7,col,big?260:210,{a:ang,spread:.85,z});
+  ring({ x,y, r0:2, r1:big?34:20, life:.16, w:2, col, sq:.55 });
+  burst3({ k:'hit', x, y, z, col, ang, big:!!big });
 }
+// Torre atingida: lascas de pedra e poeira saindo do alto.
+function towerHit(x,y,king){ burst3({ k:'chip', x, y, king:!!king }); }
 function explode(x,y,r,col,col2='#FFE9A8'){
   ring({ x,y, r0:r*.15, r1:r*1.05, life:.34, w:5, col:col2, sq:.5 });
   ring({ x,y, r0:r*.05, r1:r*1.5, life:.5, w:2, col, sq:.5 });
@@ -205,6 +214,7 @@ function explode(x,y,r,col,col2='#FFE9A8'){
   smoke(x,y,budget(14),'#2B2F3A',r*1.4,r*.34);
   embers(x,y,budget(16),col);
   flashIt(.16,col2); shakeIt(r*.05);
+  burst3({ k:'boom', x, y, r, col, col2 });
 }
 // Emissores contínuos (poeira do passo, rastro de projétil e do Bólide): no online o convidado
 // chama os mesmos a cada quadro a partir do estado recebido, em vez de receber as partículas.
@@ -242,6 +252,7 @@ function bubbleCast(x,y,R){
   ring({ x,y, r0:R*.15, r1:R, life:.45, w:4, col:'#9FE6FF', sq:.5 });
   ring({ x,y, r0:R*.9, r1:R*1.05, life:.6, w:2, col:'#E6FAFF', sq:.5 });
   sparks(x,y,16,'#BFF1FF',160);
+  burst3({ k:'splash', x, y, r:R });
 }
 function bubblePop(x,y,z){
   ring({ x,y, r0:6, r1:46, life:.28, w:3, col:'#E6FAFF', sq:.5 });
@@ -251,12 +262,16 @@ function bubblePop(x,y,z){
     part({ x, y, z, vx:Math.cos(a)*s, vy:Math.sin(a)*s*.6, vz:rnd(40,160), g:-520, drag:.97,
            life:rnd(.4,.8), max:.8, r:rnd(1.6,3.2), col:'#7FD8FF', add:false, kind:'dot' });
   }
+  burst3({ k:'pop', x, y, z });
 }
 function bubbleLand(x,y,r){
   smoke(x,y,6,'#C9B48C',38,r*.55);
   ring({ x,y, r0:r*.5, r1:r*2.4, life:.32, w:3, col:'#E8DCC0', sq:.5 });
+  burst3({ k:'land', x, y, r });
 }
-function deployBurst(x,y,col){
+// Entrada de tropa: na hora em que a carta cai (coluna de luz do time) e ao pousar (`land`).
+function deployBurst(x,y,col,land=false){
+  if(!land) burst3({ k:'deploy', x, y, col });
   ring({ x,y, r0:TILE*.9, r1:TILE*.15, life:.42, w:3, col, sq:.5 });
   ring({ x,y, r0:6, r1:TILE*.8, life:.34, w:2, col, sq:.5 });
   for(let i=0;i<budget(16);i++){
@@ -1149,7 +1164,8 @@ function hurt(e, dmg, from, opts={}){
   const real = Math.min(dmg, Math.max(0, e.hp));
   if(e.kind==='tower' && from) G.stats.dmg[from] += real;
   e.hp -= dmg; e.hurt = 1;
-  if(real >= 55 || e.kind==='tower') dmgText(e.x, e.y - (e.kind==='tower'?70:e.r+18), real, from==='ally'?T.ally:T.foe);
+  if(real >= 55 || e.kind==='tower') dmgText(e.x, e.y, real, from==='ally'?T.ally:T.foe, e.kind==='tower' ? (e.king?190:160) : e.r*2.6+(e.z||0)+34);
+  if(e.kind==='tower' && real > 0) towerHit(e.x, e.y, e.king);
   if(e.kind==='tower'){
     if(e.king) e.active = true;
     if(!e.king){ const k = G.towers.find(t=>t.side===e.side && t.king); if(k) k.active = k.active; }
@@ -1179,8 +1195,8 @@ function fallTower(tw){
   tw.alive = false; tw.rubble = 1;
   const C = side[tw.side], win = other(tw.side);
   G.crowns[win] += tw.king ? 3 : 1;
-  explode(tw.x, tw.y-30, 90, C.main, '#FFE9A8');
-  for(let i=0;i<3;i++) setTimeout(()=>{ if(G.state==='battle'||G.state==='over') explode(tw.x+rnd(-40,40), tw.y-rnd(10,70), 44, C.main); }, i*130);
+  explode(tw.x, tw.y, 90, C.main, '#FFE9A8');
+  for(let i=0;i<3;i++) setTimeout(()=>{ if(G.state==='battle'||G.state==='over') explode(tw.x+rnd(-40,40), tw.y+rnd(-30,30), 44, C.main); }, i*130);
   shards(tw.x, tw.y-40, 34, '#5D6674', 260);
   smoke(tw.x, tw.y-30, 22, '#31373F', 90, 26);
   shakeIt(26); flashIt(.3, C.main); slowMo(.32, .55);
@@ -1205,12 +1221,14 @@ const PROJ = {
   ball: { speed:11*TILE, r:5, col:'#3B424E', trail:.25, arc:.55 },
   bubble:{ speed:6*TILE, r:9, col:'#9FE6FF', trail:.3, arc:.35 }
 };
+// Altura do ponto do corpo onde o tiro mira (torre: ameia; tropa: peito, mais a altura do voo ou da bolha).
+const aimLift = t => (t.kind==='tower' ? 40 : t.r*.8) + (t.z||0);
 function shoot(from, tgt, kind, dmg, splash){
   const p = PROJ[kind], C = side[from.side];
   const sx = from.x + (from.kind==='tower' ? Math.cos(from.aim)*22 : from.facing*from.r*.8);
   const sy = from.y - (from.kind==='tower' ? (from.king?106:86) : from.r*1.6) - (from.z||0);
   const pr = { x:sx, y:sy, z:0, sx, sy, kind, dmg, splash:(splash||0)*TILE, side:from.side,
-    target:tgt, tx:tgt.x, ty:tgt.y - (tgt.kind==='tower'?40:tgt.r*.8), speed:p.speed,
+    target:tgt, tx:tgt.x, ty:tgt.y - aimLift(tgt), aim:aimLift(tgt), speed:p.speed,
     col: p.magic ? C.main : p.col, r:p.r, arc:p.arc, t:0, hist:[],
     lift0:(from.kind==='tower'?(from.king?106:86):from.r*1.6)+(from.z||0),lift1:(tgt.kind==='tower'?40:tgt.r*.8)+(tgt.z||0) };
   const d = dist(sx,sy,pr.tx,pr.ty);
@@ -1223,7 +1241,7 @@ function stepProjs(dt){
     p.t += dt;
     const tg = p.target;
     if(tg && !tg.dead && tg.alive!==false){
-      p.tx = tg.x; p.ty = tg.y - (tg.kind==='tower'?40:tg.r*.8) - (tg.z||0);
+      p.aim = aimLift(tg); p.tx = tg.x; p.ty = tg.y - p.aim;
     }
     const k = clamp(p.t/p.dur, 0, 1);
     const px = p.x, py = p.y;
@@ -1238,18 +1256,21 @@ function stepProjs(dt){
 function impact(p){
   if(p.kind==='bubble'){ trapInBubble(p); return; }
   const C = p.side==='ally' ? T.ally : T.foe;
+  // O tiro chega no ponto de mira (no ar, para voadores e presos na bolha); `gy` é o chão embaixo dele.
+  // Comparar o ponto no ar com o centro no chão fazia flechas e torres errarem morcegos no alto do voo.
+  const gy = p.y + (p.aim||0);
   if(p.splash > 0){
     const col = p.kind==='fire' ? '#FF8A2E' : p.kind==='bomb' ? '#FFB13C' : C;
-    explode(p.x, p.y, p.splash*.9, col);
+    explode(p.x, gy, p.splash*.9, col);
     AU.sfx(p.kind==='fire'?'fire':'cannon',.55);
-    decal(p.x, p.y, p.splash*.62, '#1A0E06', .16, 7);
+    decal(p.x, gy, p.splash*.62, '#1A0E06', .16, 7);
     const hits = [];
-    eachEnemyOf(p.side, e=>{ if(dist(p.x,p.y,e.x,e.y) < p.splash + (e.r||0)*.6) hits.push(e); });
+    eachEnemyOf(p.side, e=>{ if(dist(p.x,gy,e.x,e.y) < p.splash + (e.r||0)*.6) hits.push(e); });
     for(const e of hits) hurt(e, p.dmg, p.side);
   } else {
     const tg = p.target;
-    hitSpark(p.x, p.y, p.col || C, p.ang+PI);
-    if(tg && !tg.dead && tg.alive!==false && dist(p.x,p.y,tg.x,tg.y) < (tg.r||30)+40){
+    hitSpark(p.x, gy, p.col || C, p.ang+PI, false, p.aim||0);
+    if(tg && !tg.dead && tg.alive!==false && dist(p.x,gy,tg.x,tg.y) < (tg.r||30)+40){
       hurt(tg, p.dmg, p.side);
       if(p.kind==='arrow') AU.unit('arqueiras', 'impact', 'arrow', .4); else AU.sfx('arrow',.4);
     }
@@ -1848,7 +1869,9 @@ function releaseAttack(u,t){
       else {
         hurt(t, c.dmg, u.side);
         const a = Math.atan2(t.y-u.y, t.x-u.x);
-        hitSpark(u.x+Math.cos(a)*(u.r+8), u.y+Math.sin(a)*(u.r+8)-u.r*.7, side[u.side].main, a);
+        // ponto de contato na borda do alvo, na altura do corpo dele
+        const tr = (t.r||20)*(t.kind==='tower'?.8:1.15), th = t.kind==='tower' ? 60 : t.r*.9+(t.z||0);
+        hitSpark(t.x-Math.cos(a)*tr, t.y-Math.sin(a)*tr, side[u.side].main, a, c.dmg>400, th);
         AU.unit(c.id, 'hit', c.dmg>400?'punch':'sword', .45);
         if(c.dmg>400) shakeIt(3);
       }
@@ -1858,7 +1881,7 @@ function stepUnit(u, dt){
   if(u.spawnT > 0){ u.spawnT -= dt; return; }
   u.hurt = Math.max(0, u.hurt - dt*4.5);
   u.atk = Math.max(0, u.atk - dt*3.6);
-  if(u.deploy > 0){ u.deploy -= dt; if(u.deploy<=0) deployBurst(u.x,u.y,side[u.side].main); return; }
+  if(u.deploy > 0){ u.deploy -= dt; if(u.deploy<=0) deployBurst(u.x,u.y,side[u.side].main,true); return; }
   if(u.bolha > 0 || u.caindo){ stepTrapped(u, dt); return; }
   if(u.desenho > 0){ u.desenho -= dt; }
   if(u.stun > 0){ u.stun -= dt; u.attackWindup=0;u.attackTarget=null;u.ph += dt*2; return; }

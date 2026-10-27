@@ -57,7 +57,7 @@ const netFill=(type,o)=>({...NET_DEFAULTS[type],abilityCD:{},...o});
 // Efeitos: as partículas não viajam mais. O anfitrião registra as chamadas de efeito (faíscas, explosão,
 // número de dano...) e o convidado repete as mesmas chamadas, com o limite de partículas do próprio aparelho.
 // Os contínuos (poeira do passo, rastros) o convidado gera sozinho no NET.frame a partir do estado.
-const NET_FX=['ring','bolt','dmgText','decal','sparks','smoke','embers','shards','flingShards','hitSpark','explode','deployBurst','shakeIt','flashIt','bubbleCast','bubblePop','bubbleLand'];
+const NET_FX=['ring','bolt','dmgText','decal','sparks','smoke','embers','shards','flingShards','hitSpark','explode','deployBurst','shakeIt','flashIt','bubbleCast','bubblePop','bubbleLand','towerHit'];
 const fxOriginal={};let fxDepth=0,sfxDepth=0;
 // Sons da partida (tropas, torres, feitiços) vão do mesmo jeito; os só do próprio jogador (botões,
 // elixir cheio, vitória, passos das suas tropas) ficam fora.
