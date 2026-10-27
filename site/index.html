@@ -65,6 +65,11 @@ section h2{font-size:clamp(30px,4.5vw,42px);color:#fff1c6;margin-bottom:8px}
 .kicker.news{background:#ffd34f;color:#5a3a00;border-color:#fff1b0;margin-left:6px;animation:pulse 2.4s ease-in-out infinite}
 @keyframes pulse{50%{transform:scale(1.05)}}
 .soon{margin-top:26px;padding-top:22px;border-top:2px dashed #ffffff40;max-width:900px}
+/* Raridade (a mesma do jogo): borda e brilho; lendária com borda dourada brilhando */
+.card[data-rar=comum]{border-color:#5a6676}.card[data-rar=rara]{border-color:#1149a8;background:linear-gradient(#cfe8ff,#5fa9f0)}
+.card[data-rar=epica]{border-color:#561a9f;background:linear-gradient(#ecd6ff,#a978e8)}
+.card[data-rar=lendaria]{border-color:#a9640a;background:linear-gradient(#fff3c4,#f2be45);box-shadow:inset 0 0 0 2px #fff6d0,0 0 14px #ffd84d99,0 4px #082d5c}
+.card[data-rar=evento]{border-color:#981225;background:linear-gradient(#ffe0e0,#f27a86)}
 .card.mystery{background:linear-gradient(#2b4f86,#1a3561);border-style:dashed;border-color:#ffd34f;box-shadow:inset 0 0 0 2px #ffffff22,0 4px #082d5c;color:#d3e6fa}
 .card.mystery .q{display:grid;place-items:center;width:76px;height:76px;margin:4px 0 6px;font-family:Royale,system-ui,sans-serif;font-size:58px;color:#ffd34f;text-shadow:0 0 18px #ffd34f88,0 3px #5a3a00}
 .card.mystery small{color:#bcd6f2}

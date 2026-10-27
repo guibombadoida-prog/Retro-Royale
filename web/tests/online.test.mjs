@@ -49,6 +49,9 @@ for(const [mode,sizes] of Object.entries({'1v1':[1,1],'2v1':[2,1],'2v2':[2,2],'3
  eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:[...normal,'princesa']})).status,400);
  eq((await call(room,{action:'create',mode,profileToken:profiles[0].token,deck:['princesa','princesa',...normal.slice(2)]})).status,400);
  eq((await call(room,{action:'input',code:guest.code,token:guest.token,input:{...input,seq:2,card:'princesa'}})).status,200);
+ // Habilidade do Herói Princesa (o anfitrião confere se a unidade é Herói e se há elixir).
+ eq((await call(room,{action:'input',code:guest.code,token:guest.token,input:{seq:3,kind:'ability',unitId:7,ability:'chuva'}})).status,200);
+ eq((await call(room,{action:'input',code:guest.code,token:guest.token,input:{seq:4,kind:'ability',unitId:7,ability:'nada'}})).status,400);
  await call(room,{action:'leave',code:guest.code,token:guest.token});eq((await call(room,{action:'sync',code:host.code,token:host.token})).status,410);
 }
 eq((await call(room,{action:'create',mode:'toString'})).status,400);

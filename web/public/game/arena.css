@@ -21,7 +21,7 @@ button,input,select{font:inherit}button{color:inherit;cursor:pointer;border:0;ba
 #menuBtn{position:absolute;left:4%;top:8px;width:11%;height:27%;min-height:31px;background:linear-gradient(#9a5777,#78315d);border:3px solid #49344c;border-radius:6px;box-shadow:inset 0 0 0 2px #b37b8e,0 2px #042b63;font-size:32px;line-height:1;text-shadow:0 2px #362038}
 #elixirRow{position:absolute;bottom:9px;left:27%;right:9px;height:16px;display:flex;align-items:center;gap:0}#elixirBar{width:100%;height:16px;background:#02366f;border:2px solid #0c1842;border-radius:3px;display:flex;overflow:hidden;box-shadow:inset 0 2px #092953}.eseg{flex:1;border-right:1px solid #082c62;position:relative;background:#05478e}.eseg i{display:block;position:absolute;inset:0;transform:scaleX(0);transform-origin:left;background:linear-gradient(#f36ee9,#e536d5);box-shadow:inset 0 2px #ff9df2}
 #elixirCount{position:absolute;left:-3px;bottom:5px;font-size:22px;z-index:3;color:#fff;text-shadow:2px 2px #183048,-1px 0 #183048}.elixirDrop{position:absolute;left:-22px;bottom:-1px;width:20px;height:25px;background:radial-gradient(ellipse at 35% 30%,#ff98fa,#e11acb 65%,#940e91);border:2px solid #691776;border-radius:65% 30% 60% 50%;transform:rotate(19deg)}.maxElixir{position:absolute;left:-3px;top:15px;font-size:8px;color:#ecc9ff}#x2tag{position:absolute;right:2px;bottom:18px;font-size:13px;color:#ffcffa;display:none}.x2 #x2tag{display:block}.x2 #elixirBar{box-shadow:0 0 8px #f14bde}#queue,#rail{display:none}
-.worldLabels{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}.worldHp{position:absolute;top:0;left:0;min-width:28px;will-change:transform;filter:drop-shadow(0 1px 1px #243c17)}.worldHp>div{height:4px;border:1px solid #183a29;background:#212f26;border-radius:2px;overflow:hidden}.worldHp i{display:block;height:100%;background:var(--ally);transform-origin:left}.worldHp span{display:none}.worldHp.towerHp{width:50px;text-align:center}.worldHp.towerHp span{display:block;color:#fff;font-size:13px;line-height:1;text-shadow:1px 2px #244021,-1px -1px #244021;margin-bottom:1px}.worldHp.towerHp>div{height:5px}
+.worldLabels{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}.dmgLayer{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden}.dmgNum{position:absolute;left:0;top:0;font-family:Royale,system-ui,sans-serif;font-size:17px;line-height:1;white-space:nowrap;will-change:transform,opacity;text-shadow:0 2px 0 #1b2440,1.5px 0 0 #1b2440,-1.5px 0 0 #1b2440,0 -1.5px 0 #1b2440,0 3px 4px #0007}.screenFlash{position:absolute;inset:0;pointer-events:none;z-index:6;opacity:0;mix-blend-mode:screen}.worldHp{position:absolute;top:0;left:0;min-width:28px;will-change:transform;filter:drop-shadow(0 1px 1px #243c17)}.worldHp>div{height:4px;border:1px solid #183a29;background:#212f26;border-radius:2px;overflow:hidden}.worldHp i{display:block;height:100%;background:var(--ally);transform-origin:left}.worldHp span{display:none}.worldHp.towerHp{width:50px;text-align:center}.worldHp.towerHp span{display:block;color:#fff;font-size:13px;line-height:1;text-shadow:1px 2px #244021,-1px -1px #244021;margin-bottom:1px}.worldHp.towerHp>div{height:5px}
 #championPanel{position:absolute;z-index:7;bottom:26px;left:8px;right:8px;pointer-events:none}.championPanelTitle,.championControls h3{display:none}#championButtons,.championControls{display:contents}.abilityGrid{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;max-width:190px;margin-left:auto;align-items:flex-end;pointer-events:none}
 .abilityButton{position:relative;width:54px;height:54px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(ellipse at 35% 25%,#a5edff,#21c5ff 52%,#0285d9 78%);border:3px solid #184664;box-shadow:inset 0 0 0 3px #64d6fd,0 3px 2px #234029;isolation:isolate;pointer-events:auto;overflow:visible;color:#fff;transition:transform .12s}.abilityButton svg{width:31px;height:31px;filter:drop-shadow(0 2px #075078)}.abilityButton>span{position:absolute;top:57px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:8px;color:#fff8d8;text-shadow:1px 1px #244325}.abilityButton::before{content:'';position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(#132638b8 calc(var(--cooldown,0)*360deg),transparent 0);z-index:2;pointer-events:none}.abilityCost{position:absolute;top:-6px;left:-6px;width:19px;height:25px;display:grid;place-items:center;background:radial-gradient(ellipse at 30% 25%,#ffa4f9,#d51cbe 64%,#85067e);border:2px solid #60216a;border-radius:60% 42% 50% 50%;font-size:14px;text-shadow:1px 2px #5f1263;z-index:3}.abilityState{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;text-align:center;z-index:3;pointer-events:none;padding:3px;line-height:1.1;text-shadow:0 1px 2px #032d4e}.abilityReady .abilityState{display:none}.abilityButton:disabled{filter:saturate(.6) brightness(.8)}.abilityButton.abilityReady{border-color:#193c48;animation:skillGlow 1.8s infinite ease-in-out}.abilityButton.abilityReady:active{transform:scale(.9)}@keyframes skillGlow{50%{box-shadow:inset 0 0 0 3px #8be3ff,0 0 12px #d3fff578}}
 body[data-ability-position=left] .abilityGrid{margin-left:0;justify-content:flex-start}body[data-ability-position=both] .abilityGrid{max-width:100%;justify-content:space-between}body[data-ability-position=both] .abilityButton[data-control-side=left]{margin-right:auto}body[data-ability-position=both] .abilityButton[data-control-side=right]{margin-left:auto}
@@ -58,3 +58,83 @@ dialog label{display:block;font-size:13px;margin:11px 0 4px}input,select{width:1
 html[data-site=estatico] .siteNote{display:block}
 html[data-site=estatico] :is(.emailLoginForm,.profileTransfer,.modeChoices){display:none!important}
 html[data-online=nao] :is(#onlineBtn,.siteNote.comOnline),html[data-online=sim] .siteNote.semOnline{display:none!important}
+/* ── Raridade e versões das cartas (data-rar / data-versao), referências do dono ─────────────
+   Comum: prata, sem símbolo · Rara: azul, triângulo · Épica: roxa, losango · Lendária: dourada com
+   brilho, estrela · Evento: vermelha, fita · Herói: dourada com gema · Evolução: roxa com gema. */
+[data-rar]{--r1:#f1f5f9;--r2:#aeb8c6;--r3:#5a6676;--rg:#0000}
+[data-rar=rara]{--r1:#d6edff;--r2:#3f9cff;--r3:#1149a8}
+[data-rar=epica]{--r1:#f1ddff;--r2:#b25cff;--r3:#561a9f}
+[data-rar=lendaria]{--r1:#fff4c4;--r2:#ffc531;--r3:#a9640a;--rg:#ffd84d66}
+[data-rar=evento]{--r1:#ffe0e0;--r2:#ff5262;--r3:#981225}
+[data-versao=heroi]{--r1:#fff3b8;--r2:#ffcf33;--r3:#a8650a;--rg:#ffd84daa}
+[data-versao=evo]{--r1:#f2dcff;--r2:#b75cff;--r3:#5a17a6;--rg:#b75cffaa}
+.slot[data-rar],.pcard[data-rar],.deckCard[data-rar],#nextSlot[data-rar]{border-color:var(--r3);background:linear-gradient(var(--r1),var(--r2));box-shadow:inset 0 0 0 2px var(--r2),0 0 9px var(--rg),0 3px 1px #002756}
+.marks{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:4}
+.rarMark{position:absolute;top:3px;right:3px;width:16px;height:16px;z-index:4;pointer-events:none;filter:drop-shadow(0 1px 0 #0009)}
+.rarMark svg{display:block;width:100%;height:100%}
+/* brilho que passa pela carta lendária e pela Herói */
+.shine{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:3}
+.shine::before{content:'';position:absolute;top:-25%;bottom:-25%;left:0;width:38%;background:linear-gradient(100deg,#fff0,#fffb 50%,#fff0);transform:translateX(-160%) skewX(-18deg);animation:rarShine 3s ease-in-out infinite}
+@keyframes rarShine{0%{transform:translateX(-160%) skewX(-18deg)}55%,100%{transform:translateX(330%) skewX(-18deg)}}
+/* gema no alto: Herói (dourada), Evolução (roxa), Curinga (metade de cada) */
+.gemTab{position:absolute;top:-8px;left:50%;width:15px;height:15px;margin-left:-7.5px;transform:rotate(45deg);border-radius:3px;border:2px solid #2a1f52;z-index:5;background:linear-gradient(135deg,#fff6c9 0 22%,#ffc531 46%,#d88a12);box-shadow:0 1px 0 #0007}
+.gemTab.evo{background:linear-gradient(135deg,#f6e3ff 0 22%,#b45cff 46%,#6a1fc9)}
+.gemTab.curinga{background:linear-gradient(135deg,#e8c8ff 0 22%,#b45cff 22% 50%,#ffc531 50% 78%,#d88a12 78%)}
+.gemTab.big{top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-width:3px;border-radius:6px;border-color:#123a7a;box-shadow:0 0 0 4px #1b4f9e,0 3px 6px #0008}
+@media (prefers-reduced-motion:reduce){.shine::before{animation:none;opacity:0}}
+/* Coleção: custo numa gota no canto esquerdo, símbolo no direito, ✓ e "i" na base da imagem */
+.pcard .cost{left:3px;right:auto;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(ellipse at 35% 30%,#ff93f1,#de2ac5 65%,#6a0770);border:2px solid #62166e;z-index:4}
+.pcard.sel .chk{left:auto;right:3px;top:0;margin-top:calc(100% - 23px);z-index:4}
+.pcard .infoBtn{position:absolute;left:3px;top:0;margin-top:calc(100% - 22px);width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(#5fc0ff,#1679d6);border:2px solid #0c3a72;color:#fff;font:12px/1 Royale,system-ui,sans-serif;z-index:4;box-shadow:0 1px #0006}
+/* Baralho como na referência: 4×2, espaços especiais com moldura e gema; vazios escuros */
+#deckPreview{grid-template-columns:repeat(4,minmax(0,1fr));gap:11px 8px;padding-top:6px}
+.deckSlot{position:relative;aspect-ratio:3/4;padding:0;border-radius:10px;background:#0a2a63;box-shadow:inset 0 2px 7px #0009;transition:transform .12s}
+.deckSlot[data-especial]{padding:4px;border-radius:12px}
+.deckSlot[data-especial=evo]{background:linear-gradient(#c477ff,#7a2fe0);box-shadow:0 0 12px #b45cffaa,inset 0 0 0 2px #e6bbff}
+.deckSlot[data-especial=heroi]{background:linear-gradient(#ffe36b,#e09d14);box-shadow:0 0 12px #ffd84daa,inset 0 0 0 2px #fff0a8}
+.deckSlot[data-especial=curinga]{background:linear-gradient(90deg,#b45cff 50%,#ffc531 50%);box-shadow:0 0 12px #e0a0ff88,inset 0 0 0 2px #ffffff55}
+.deckSlot.pick{transform:translateY(-5px) scale(1.04);outline:3px solid #fff;outline-offset:2px}
+.deckSlot .deckCard,.deckSlot .slotBack{position:absolute;inset:0;border-radius:8px}
+.deckSlot[data-especial] .deckCard,.deckSlot[data-especial] .slotBack{inset:4px}
+.deckCard{display:block;border-width:3px;border-style:solid;overflow:visible}
+.deckCard canvas{width:100%;height:100%;display:block;border-radius:5px}
+.slotBack{background:repeating-linear-gradient(135deg,#1d57b8 0 6px,#1a50ab 6px 12px);border:3px solid #0d3b8a}
+.deckSlot:not([data-especial]) .slotBack{background:#0a2a63;border:0}
+.dropCost{position:absolute;top:-6px;left:-6px;width:21px;height:24px;display:grid;place-items:center;font:15px/1 Royale,system-ui,sans-serif;color:#fff;text-shadow:1px 2px #5f1263;background:radial-gradient(ellipse at 30% 25%,#ffa4f9,#d51cbe 64%,#85067e);border:2px solid #60216a;border-radius:60% 42% 50% 50%;z-index:5}
+.deckSummary{align-items:center}
+.avgElixir{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 6px;border-radius:9px;background:#0a2a63;box-shadow:inset 0 2px 5px #0008}
+.avgElixir i{width:16px;height:20px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(ellipse at 35% 30%,#ffa4f9,#e02ccb 60%,#8a0b86);border:2px solid #5d1366}
+.avgElixir b{font:17px/1 Royale,system-ui,sans-serif;color:#fff;text-shadow:0 2px #0a1d3d}
+#deckTip{text-align:right;color:#cfe3ff}
+/* Herói em batalha: botão da habilidade com aro dourado */
+.abilityButton.heroAbility{border-color:#a8650a;box-shadow:inset 0 0 0 3px #ffd84d,0 0 10px #ffd84d99,0 3px 2px #234029}
+/* Detalhes da carta */
+.cardInfo{padding-top:18px}
+.ciHead{display:flex;gap:14px;align-items:flex-start;margin-right:34px}
+.ciCard{position:relative;flex:none;width:96px;aspect-ratio:3/4;border-radius:9px}
+.ciTitle h2{font-size:22px;line-height:1.05;text-shadow:0 2px #0b2a50}
+.ciSub{margin:3px 0 8px;font:15px/1 Royale,system-ui,sans-serif;color:var(--r2)}
+.ciSub[data-versao=heroi]{color:#ffd84d}
+.ciPills{display:flex;gap:6px;flex-wrap:wrap}
+.ciPills span{display:flex;flex-direction:column;align-items:center;min-width:76px;border-radius:7px;overflow:hidden;background:#0b2a5a}
+.ciPills small{width:100%;text-align:center;font:10px/1.6 Royale,system-ui,sans-serif;background:#c7a6ff;color:#4b1c86}
+.ciPills b{padding:3px 6px 4px;font:13px/1.1 Royale,system-ui,sans-serif}
+.ciRole{margin:10px 0 8px;color:#d9ecff;font-size:13px}
+.ciGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:9px;background:#e6edf6}
+.ciStat{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:6px;background:#c9d5e4;color:#14294a;min-width:0}
+.ciStat.good{background:#3cc76b;color:#fff}
+.ciStat svg{flex:none;width:26px;height:26px;padding:3px;border-radius:5px;background:#1d3d66}
+.ciStat span{display:flex;flex-direction:column;min-width:0}
+.ciStat small{font-size:10px;line-height:1.1;opacity:.9}
+.ciStat b{font:14px/1.1 Royale,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ciAbility{display:flex;gap:12px;align-items:center;padding:10px;border-radius:9px;background:linear-gradient(#1c4f93,#163f78);border:2px solid #ffd84d}
+.ciAbility .abilityButton{width:58px;height:58px;pointer-events:none}
+.ciAbility h3{font:17px/1.1 Royale,system-ui,sans-serif;color:#ffd84d;text-shadow:0 2px #4a2c00}
+.ciAbility p{margin:4px 0;font-size:13px;color:#fff}
+.ciAbility small{color:#cfe3ff;font-size:11px}
+.ciNote{margin-top:8px;font-size:12px;color:#ffe9a6}
+.ciTabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.ciTabs button{padding:9px;border-radius:8px;background:#21508f;border:2px solid #0b2a5a;font:14px/1 Royale,system-ui,sans-serif;color:#fff}
+.ciTabs button[aria-selected=true]{background:linear-gradient(#a99cff,#6b5ad6);border-color:#3b2c8c}
+.settingsLabel{margin:14px 0 8px;font-size:14px}
+.abilityPos{grid-template-columns:1fr 1fr 1fr}

@@ -72,6 +72,7 @@ for(const art of ['knight','archer','goblin','giant','bomber','bat','princess'])
  if(rig.prop){e.atk=1;animateRig(n,e,1,1/60);assert.ok(rig.prop.scale.x<.01,'a bomba some ao ser lançada');}
  for(let i=0;i<30;i++)animateDeath(n,1/60);assert.ok(n.deathTime>.42);assert.ok(Math.abs(model.rotation.z)>1);finite(model);
 }
+{const hero=unitModel('princess','foe',true);assert.ok(triangles(hero)<4500,'Herói Princesa tem '+triangles(hero)+' triângulos');assert.ok(hero.getObjectByName('rightArm')&&hero.getObjectByName('head'));}
 for(const side of ['ally','foe'])for(const king of [true,false]){const model=towerModel(side,king);assert.ok(model.getObjectByName('turret'));assert.ok(triangles(model)<7500);let meshes=0;model.traverse(c=>{if(c.isMesh)meshes++;});assert.ok(meshes<=3);}
 // Duas tropas iguais não dividem esqueleto (cada uma anima sozinha).
 {const a=unitModel('knight','ally'),b=unitModel('knight','ally'),bones=m=>{let s;m.traverse(c=>{if(c.isSkinnedMesh)s=c.skeleton;});return s.bones;};assert.ok(bones(a).every(x=>!bones(b).includes(x)));assert.equal(bones(a)[0],a);}
@@ -108,7 +109,7 @@ run(`NET.active=false;NET.role=null;startMatch(testNormal,1);G.units.length=0;G.
  globalThis.pr=spawnUnit('princesa','ally',576,1100,{deploy:0});globalThis.kn=spawnUnit('cavaleiro','foe',576,900,{deploy:0});globalThis.bt=spawnUnit('morcegos','foe',640,900,{deploy:0});
  for(const u of [pr,kn,bt])u.static=true;
  globalThis.world=(s,each=()=>{})=>{for(let i=0;i<Math.round(s*60);i++){for(const u of G.units)if(!u.dead)stepUnit(u,1/60);stepProjs(1/60);each();}};`);
-assert.equal(run('CARD.princesa.hp'),450);assert.equal(run('CARD.princesa.custo'),5);assert.equal(run('CARD.princesa.alvo'),'chao');
+assert.equal(run('CARD.princesa.hp'),600);assert.equal(run('CARD.princesa.custo'),5);assert.equal(run('CARD.princesa.alvo'),'chao');
 run('world(1.4)');assert.equal(run('G.projs.length'),0,'a primeira bolha espera a recarga inicial');
 run(`globalThis.casted=0;globalThis.launched=0;world(1.2,()=>{if(pr.cast>0)casted++;if(G.projs.some(p=>p.kind==='bubble'))launched++;});`);
 assert.ok(run('casted')>20,'ela para e conjura antes de lançar');assert.ok(run('launched')>0,'a bolha voa até o alvo');
@@ -119,15 +120,54 @@ assert.equal(run('attacked'),0,'preso não ataca');assert.equal(run('kn.x===star
 const snap=JSON.parse(JSON.stringify(run("netPick([kn],'unit')[0]")));assert.ok(snap.bolha>0&&snap.z>0,'o estado da bolha vai para o convidado');
 for(const name of ['bubbleCast','bubblePop','bubbleLand'])assert.ok(run(`NET_FX.includes('${name}')`),name+' é repetido no convidado');
 run(`globalThis.popped=0;world(3,()=>{if(!popped&&kn.caindo)popped=kn.maxHp-kn.hp;});`);
-assert.equal(run('popped'),150,'o estouro tira 150');assert.equal(run('kn.maxHp-kn.hp'),250,'estouro + queda tiram 250');
+assert.equal(run('popped'),180,'o estouro tira 180');assert.equal(run('kn.maxHp-kn.hp'),300,'estouro + queda tiram 300');
 assert.equal(run('kn.z'),0);assert.equal(run('!!kn.caindo'),false);assert.equal(run('bt.hp'),run('bt.maxHp'));
-// Recarga: a segunda bolha só vem 7 s depois da primeira.
+// Recarga: a segunda bolha só vem 5,5 s depois da primeira.
 run(`G.units.length=0;G.projs.length=0;globalThis.pr=spawnUnit('princesa','ally',576,1100,{deploy:0});globalThis.gg=spawnUnit('gigante','foe',576,950,{deploy:0});pr.static=gg.static=true;globalThis.casts=[];
  globalThis.t=0;world(10,()=>{t+=1/60;if(pr.cast>0&&(!casts.length||t-casts.at(-1)>1))casts.push(t);});`);
-assert.equal(run('casts.length'),2);assert.ok(Math.abs(run('casts[1]-casts[0]')-7)<.1,'recarga de 7 s');
+assert.equal(run('casts.length'),2);assert.ok(Math.abs(run('casts[1]-casts[0]')-5.5)<.1,'recarga de 5,5 s');
 // Baralho com a Princesa: oito cartas diferentes entre as nove; a IA também pode usar.
 assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos']).join()`),'princesa,arqueiras,goblins,gigante,bolide,estalo,bombardeiro,morcegos');
 assert.equal(run(`PROGRESS.sanitize(['princesa','princesa','goblins','gigante','bolide','estalo','bombardeiro','morcegos'])[0]`),'cavaleiro','repetida volta ao padrão');
 assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','reibombado'])[0]`),'cavaleiro','carta removida volta ao padrão');
 assert.ok(run(`FOE_DECKS.some(d=>d.includes('princesa'))&&FOE_DECKS.every(d=>PROGRESS.sanitize(d).join()===d.join())`));
-console.log('Princesa da Bolha: automatic bubble after cooldown, ground enemies float without moving or attacking, 150 pop + 100 fall damage, air units spared, 7 s recharge, state and effects reach guests, 8-of-9 deck validation.');
+// Tiros (torre e Arqueiras) acertam alvos no ar: morcego em qualquer altura do voo e tropa presa na bolha.
+// Antes o acerto comparava o ponto no ar com o centro no chão e o morcego no alto do voo ficava imortal.
+run(`G.units.length=0;G.projs.length=0;globalThis.tw=G.towers.find(t=>t.side==='ally'&&!t.king);tw.alive=true;tw.active=true;tw.atkT=0;
+ globalThis.bat=spawnUnit('morcegos','foe',tw.x,tw.y-260,{deploy:0});bat.static=true;bat.maxHp=bat.hp=1e9;
+ globalThis.arc=spawnUnit('arqueiras','ally',tw.x+60,tw.y-120,{deploy:0});arc.static=true;
+ globalThis.shots=0;globalThis.hits=0;globalThis.realHurt=hurt;globalThis.realShoot=shoot;
+ hurt=(e,d,f,o)=>{if(e===bat)hits++;return realHurt(e,d,f,o);};shoot=(a,t,...r)=>{if(t===bat)shots++;return realShoot(a,t,...r);};
+ for(let i=0;i<60*15;i++){for(const u of G.units)if(!u.dead)stepUnit(u,1/60);stepTower(tw,1/60);stepProjs(1/60);}
+ for(let i=0;i<120;i++)stepProjs(1/60);hurt=realHurt;shoot=realShoot;`);
+assert.ok(run('shots')>20,'torre e Arqueiras atiram no morcego');assert.equal(run('hits'),run('shots'),'todo tiro no morcego acerta');
+run(`G.units.length=0;G.projs.length=0;globalThis.kn=spawnUnit('cavaleiro','foe',tw.x,tw.y-240,{deploy:0});kn.static=true;
+ Object.assign(kn,{bolha:2.5,bolhaMax:2.5,bolhaPop:0,bolhaQueda:0,bolhaDe:'ally'});tw.atkT=0;const hp0=kn.hp;
+ for(let i=0;i<60*2;i++){stepUnit(kn,1/60);stepTower(tw,1/60);stepProjs(1/60);}globalThis.lost=hp0-kn.hp;`);
+assert.ok(run('kn.z')>60&&run('lost')>=run('tw.dmg')*2,'a torre acerta a tropa flutuando na bolha');
+console.log('Air targets: every tower and archer shot hits a bat at any height of its flight and a troop floating in a bubble.');
+console.log('Princesa da Bolha: automatic bubble after cooldown, ground enemies float without moving or attacking, 180 pop + 120 fall damage, air units spared, 5.5 s recharge, state and effects reach guests, 8-of-9 deck validation.');
+
+// Herói Princesa: só no 2º (Herói) ou 3º (Curinga) espaço do baralho; "Chuva de bolhas" custa 3 de elixir,
+// prende na hora os inimigos em volta (até voadores) e tem recarga; a Princesa normal não tem o botão.
+run(`NET.active=false;NET.role=null;startMatch(testNormal,1);G.units.length=0;G.projs.length=0;G.state='battle';
+ G.deck.ally=['cavaleiro','princesa','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];deployCard('princesa','ally',576,1000);
+ globalThis.hp=G.units.at(-1);G.deck.ally=['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];deployCard('princesa','ally',300,1000);
+ globalThis.np=G.units.at(-1);for(const u of [hp,np]){u.deploy=0;u.static=true;}`);
+assert.equal(run('hp.heroi'),true,'no espaço dourado ela entra como Herói');assert.ok(!run('np.heroi'),'no espaço de Evolução ela é a Princesa normal');
+assert.ok(run(`['princesa','cavaleiro','arqueiras'].map((id,i)=>ehHeroi('princesa',i===2?['a','b','princesa']:i===1?['a','princesa']:['princesa'])).join()==='false,true,true'`),'Curinga também vale');
+run(`globalThis.kn=spawnUnit('cavaleiro','foe',576,880,{deploy:0});globalThis.bt=spawnUnit('morcegos','foe',640,900,{deploy:0});globalThis.far=spawnUnit('gigante','foe',576,500,{deploy:0});
+ for(const u of [kn,bt,far])u.static=true;G.elixir.ally=10;`);
+assert.equal(run(`championAbilityState(np,'chuva').reason`),'Herói fora de campo');
+assert.equal(run(`activateChampionAbility('ally',hp.id,'chuva')`),true);assert.equal(Math.round(run('G.elixir.ally')),7,'custa 3 de elixir');
+assert.ok(run('kn.bolha>0&&bt.bolha>0'),'prende tropa no chão e voadora');assert.ok(!run('far.bolha'),'fora do raio não é preso');
+assert.equal(run(`activateChampionAbility('ally',hp.id,'chuva')`),false,'recarga');assert.ok(run(`championAbilityState(hp,'chuva').reason.startsWith('Recarga')`));
+run('for(let i=0;i<60*4;i++){for(const u of G.units)if(!u.dead)stepUnit(u,1/60);}');
+assert.ok(run('bt.dead||(!bt.caindo&&!(bt.bolha>0)&&bt.z>=40)'),'o morcego volta para a altura do voo');
+assert.equal(JSON.parse(JSON.stringify(run("netPick([hp],'unit')[0]"))).heroi,true,'o convidado sabe que é Herói');assert.ok(run(`NET_FX.includes('bubbleRain')`));
+// IA com a Princesa Herói (baralho com ela no Curinga) usa a habilidade quando pega dois inimigos.
+run(`G.units.length=0;G.deck.foe=['cavaleiro','arqueiras','princesa','gigante','bolide','estalo','bombardeiro','morcegos'];deployCard('princesa','foe',576,600);
+ globalThis.fp=G.units.at(-1);fp.deploy=0;fp.static=true;G.elixir.foe=10;for(const [x,y] of [[560,700],[600,700]]){const u=spawnUnit('cavaleiro','ally',x,y,{deploy:0});u.static=true;}
+ for(let i=0;i<60*1.2;i++)for(const u of G.units)if(!u.dead&&u.heroi)stepAbility(u,1/60);`);
+assert.ok(run('fp.heroi&&G.units.filter(u=>u.side==="ally"&&u.bolha>0).length===2'),'a IA usa a Chuva de bolhas');
+console.log('Hero Princesa: hero only in the gold or wildcard deck slot, Bubble Rain costs 3 elixir, traps ground and air enemies in range, has a cooldown, normal Princesa cannot use it, guests see the hero flag, AI uses it.');

@@ -50,7 +50,7 @@
   </section>
   <details class="profileTransfer"><summary>Transferir progresso de visitante</summary><p>Guarde seu código antes de trocar de aparelho ou reinstalar o APK. Ele recupera o perfil de visitante salvo no servidor.</p><button id="copyRecovery" class="chip" type="button">Copiar meu código</button><label for="recoveryCode">Código de recuperação</label><input id="recoveryCode" type="password" maxlength="72" autocomplete="off" spellcheck="false" placeholder="Cole o código do seu outro aparelho"><button id="restoreRecovery" class="chip" type="button">Restaurar perfil</button><small id="recoveryStatus" role="status"></small></details>
   <div class="menuTabs" style="display:none"><button class="on" id="deckTab">Baralho</button><button id="collectionTab">Coleção</button></div>
-  <div class="deckBox"><div class="secttl"><h2>Seu baralho</h2><span id="deckCnt">8 / 8</span></div><div id="deckPreview" aria-label="Oito cartas do baralho"></div><div class="deckSummary"><span id="avgCost"></span><span>8 cartas</span></div></div>
+  <div class="deckBox"><div class="secttl"><h2>Seu baralho</h2><span id="deckCnt">8 / 8</span></div><div id="deckPreview" aria-label="Oito cartas do baralho: 1º espaço de Evolução, 2º de Herói, 3º curinga"></div><div class="deckSummary"><span class="avgElixir" title="Custo médio de elixir"><i aria-hidden="true"></i><b id="avgCost">0.0</b></span><span id="deckTip"></span></div></div>
     <details id="deckDetails"><summary>Alterar baralho <span>＋</span></summary><p class="poolHint">Toque para tirar ou pôr cartas. O baralho tem 8.</p><div id="pool"></div></details>
   <div class="secttl"><h2>Modo online</h2><span class="rule"></span></div>
   <p class="siteNote comOnline">Neste site o treino roda aqui mesmo. As batalhas online e a conta abrem na versão do jogo com servidor.</p><p class="siteNote semOnline">O online ainda não está no ar. Por enquanto, treine contra a IA!</p>
@@ -77,7 +77,10 @@
 
 <dialog id="settingsDialog" aria-labelledby="settingsTitle"><button class="closeDialog" id="closeSettings" aria-label="Fechar configurações">×</button><h2 id="settingsTitle">Configurações</h2>
  <div class="settingsTools"><button id="soundBtn" class="chip" aria-pressed="true">♪ Som</button><button id="fxBtn" class="chip" aria-pressed="true">✧ VFX</button><button id="lightBtn" class="chip" aria-pressed="false">Modo leve</button><button id="viewBtn" class="chip" aria-label="Mudar vista da câmera 3D">◈ Vista</button></div>
+ <h3 class="settingsLabel">Posição do botão da habilidade</h3>
+ <div class="settingsTools abilityPos"><button class="chip" data-ability-position="left" type="button">Esquerda</button><button class="chip" data-ability-position="right" type="button">Direita</button><button class="chip" data-ability-position="both" type="button">Dos dois lados</button></div>
  </dialog>
+<dialog id="cardDialog" class="cardInfo" aria-labelledby="ciName"><button class="closeDialog" id="closeCardInfo" type="button" aria-label="Fechar detalhes" onclick="this.closest('dialog').close()">×</button><div id="ciContent"></div></dialog>
 <output id="netBadge">TREINO</output>
 <div class="screen" id="result"><div class="wrap"><div id="rttl">Vitória</div><div id="rsub"></div><div id="rcrowns"><div class="rc a"><div class="rpips" id="rpAlly"></div><div class="n" id="rAlly">0</div><div class="l">Sua equipe</div></div><div class="vs">×</div><div class="rc f"><div class="rpips" id="rpFoe"></div><div class="n" id="rFoe">0</div><div class="l">Rival</div></div></div><dl id="rstats"></dl><div class="row"><button class="btn gold" id="againBtn">Revanche</button><button class="btn pri" id="backBtn">Baralho</button></div></div></div>
 <script src="progress.js"></script><script src="engine.js"></script><script src="online.js"></script><script src="sfx.js"></script><script src="account.js"></script><script src="connection.js"></script><script src="arena3d.bundle.js"></script><script src="ui.js"></script>

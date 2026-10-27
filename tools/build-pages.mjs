@@ -30,12 +30,13 @@ function readCards(){
  return cards;
 }
 
+const RARIDADES={comum:'Comum',rara:'Rara',epica:'Épica',lendaria:'Lendária',evento:'Evento'};
 function cardHtml(c,icons){
- const icon=icons.has(c.art)?c.art:'carta',extras=[TIPOS[c.tipo]||c.tipo];
+ const icon=icons.has(c.art)?c.art:'carta',rar=RARIDADES[c.raridade]?c.raridade:'comum',extras=[TIPOS[c.tipo]||c.tipo,RARIDADES[rar]];
  if(c.n>1)extras.push('×'+c.n);
  if(c.ar)extras.push('voa');
  if(c.nova)extras.push('nova!');
- return `<li class="card" data-art="${escape(c.art)}" data-tipo="${escape(c.tipo)}"><span class="cost" aria-label="${c.custo} de elixir">${c.custo}</span>`+
+ return `<li class="card" data-art="${escape(c.art)}" data-tipo="${escape(c.tipo)}" data-rar="${rar}"><span class="cost" aria-label="${c.custo} de elixir">${c.custo}</span>`+
   `<svg class="icon" viewBox="0 0 64 64" aria-hidden="true"><use href="#art-${icon}"/></svg>`+
   `<b>${escape(c.nome)}</b><small>${escape(c.papel||'')}</small><span class="tags">${extras.map(escape).join(' · ')}</span></li>`;
 }

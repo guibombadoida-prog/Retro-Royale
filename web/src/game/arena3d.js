@@ -5,7 +5,10 @@ import { Parts, palette, materials, unitModel, towerModel, rubbleModel, projecti
 const TILE=64,TAU=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const mix=(a,b,t)=>a+(b-a)*t;
-const v3=new T.Vector3(),v4=new T.Vector3(),up=new T.Vector3(0,1,0),color=new T.Color(),matrix=new T.Matrix4();
+const v3=new T.Vector3(),v4=new T.Vector3(),v5=new T.Vector3(),up=new T.Vector3(0,1,0),color=new T.Color(),tint=new T.Color(),tint2=new T.Color(),matrix=new T.Matrix4();
+const faceUp=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),Math.PI/2);
+const lerpColor=(a,b,k)=>tint.set(a).lerp(tint2.set(b),clamp(k,0,1));
+const easeOut=k=>1-(1-k)*(1-k)*(1-k);
 const world=(x,y,z=0)=>new T.Vector3(x/TILE-9,.02+z/TILE,y/TILE-13);
 const particleMax=1200;
 
@@ -70,6 +73,45 @@ class Marks{
   if(this.n>=this.max)return;matrix.makeScale(s,1,s).setPosition(x,y,z);this.mesh.setMatrixAt(this.n,matrix);this.mesh.setColorAt(this.n,color.set(c));this.n++;
  }
  finish(){if(this.software){this.pool.finish();return;}this.mesh.count=this.n;this.mesh.instanceMatrix.needsUpdate=true;this.mesh.instanceColor.needsUpdate=true;}
+}
+// Lote instanciado para efeitos: todas as peças de um tipo (anéis, brilhos, estrelas, fumaça...) numa
+// chamada de desenho só, cada uma com matriz, cor e transparência próprias (atributo instanceAlpha).
+// Antes era uma malha por peça e uma explosão chegava a ~200 chamadas por quadro. `solid` = sem
+// transparência (fumaça e pedras cartoon, que somem encolhendo). Sem WebGL vira um Pool comum.
+const spareSlot=new T.Object3D();
+class Batch{
+ constructor(scene,geometry,{add=false,toon=false,solid=false,top=false,side=T.FrontSide,map=null,max=128,order=0,software=false}={}){
+  this.software=software;
+  if(software){this.pool=new Pool(scene,geometry,{add,toon,side,map});return;}
+  const mat=toon?new T.MeshToonMaterial({color:0xffffff}):new T.MeshBasicMaterial({color:0xffffff,map,side,toneMapped:!add});
+  if(!solid){
+   Object.assign(mat,{transparent:true,depthWrite:false,blending:add?T.AdditiveBlending:T.NormalBlending});
+   mat.onBeforeCompile=sh=>{
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float instanceAlpha;varying float vInstAlpha;').replace('#include <begin_vertex>','#include <begin_vertex>\nvInstAlpha=instanceAlpha;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vInstAlpha;').replace('#include <opaque_fragment>','diffuseColor.a*=vInstAlpha;\n#include <opaque_fragment>');
+   };
+   mat.customProgramCacheKey=()=>'rr-batch-'+(add?'add':'normal')+(map?'-map':'')+(toon?'-toon':'');
+  }
+  this.alpha=new T.InstancedBufferAttribute(new Float32Array(max).fill(1),1).setUsage(T.DynamicDrawUsage);geometry.setAttribute('instanceAlpha',this.alpha);
+  // `top`: desenhado por cima das tropas (estrela de impacto), senão ficaria escondido dentro do boneco.
+  if(top)mat.depthTest=false;
+  this.mesh=new T.InstancedMesh(geometry,mat,max);this.mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);this.mesh.setColorAt(0,color.set('#ffffff'));this.mesh.instanceColor.setUsage(T.DynamicDrawUsage);
+  this.mesh.count=0;this.mesh.frustumCulled=false;this.mesh.renderOrder=order;this.max=max;this.slots=[];this.used=0;scene.add(this.mesh);
+ }
+ reset(){if(this.software)this.pool.reset();else this.used=0;}
+ // Devolve uma peça com position/rotation/quaternion/scale (como a malha do Pool); a matriz é montada no finish.
+ get(c,opacity=1){
+  if(this.software)return this.pool.get(c,opacity);
+  if(this.used>=this.max)return spareSlot;
+  let s=this.slots[this.used];if(!s)this.slots.push(s=new T.Object3D());
+  s.position.set(0,0,0);s.rotation.set(0,0,0);s.scale.set(1,1,1);
+  this.mesh.setColorAt(this.used,color.set(c));this.alpha.array[this.used]=clamp(opacity,0,1);this.used++;return s;
+ }
+ finish(){
+  if(this.software){this.pool.finish();return;}
+  for(let i=0;i<this.used;i++){const s=this.slots[i];s.updateMatrix();this.mesh.setMatrixAt(i,s.matrix);}
+  this.mesh.count=this.used;this.mesh.instanceMatrix.needsUpdate=true;this.mesh.instanceColor.needsUpdate=true;this.alpha.needsUpdate=true;
+ }
 }
 // Qualidade automática: mede o tempo real entre quadros e ajusta resolução, sombra e contorno.
 // Começa um degrau abaixo no celular; cai quando o quadro passa de ~24 ms e nunca volta a um degrau que já pesou.
@@ -142,19 +184,26 @@ export class Arena3D{
   this.makeArena();for(const o of this.scene.children)if(!o.isLight)o.userData.environment=true;
   this.raycaster=new T.Raycaster();this.plane=new T.Plane(up,0);this.pointer=new T.Vector2();
   this.labelLayer=document.createElement('div');this.labelLayer.className='worldLabels';stage.append(this.labelLayer);
+  // Números de dano e clarão de tela (antes só existiam no desenho 2D antigo, que não roda mais).
+  this.numberLayer=document.createElement('div');this.numberLayer.className='dmgLayer';stage.append(this.numberLayer);this.numbers=[];
+  this.flashEl=document.createElement('div');this.flashEl.className='screenFlash';stage.append(this.flashEl);this.flashA=0;
   this.particles=new ParticleCloud(this.scene,true,this.software);this.smoke=new ParticleCloud(this.scene,false,this.software);
   const flat=g=>{g.rotateX(-Math.PI/2);return g;};
-  this.rings=new Pool(this.scene,flat(new T.RingGeometry(.86,1,48)),{add:true,side:T.DoubleSide});
-  const map=this.software?null:soft();
-  this.discs=new Pool(this.scene,flat(new T.CircleGeometry(1,32)),{add:true,map});
-  this.orbs=new Pool(this.scene,new T.SphereGeometry(1,16,12),{add:true});
-  this.puffs=new Pool(this.scene,new T.IcosahedronGeometry(1,1),{toon:true});
-  this.chunks=new Pool(this.scene,new T.DodecahedronGeometry(1,0),{toon:true});
-  this.stars=new Pool(this.scene,starGeometry(),{add:true});
-  this.beams=new Pool(this.scene,new T.CylinderGeometry(1,1,1,8,1,true),{add:true});
-  this.decals=new Pool(this.scene,flat(new T.CircleGeometry(1,24)),{map});
+  const map=this.software?null:soft(),B=(geometry,o)=>new Batch(this.scene,geometry,{software:this.software,...o});
+  this.rings=B(flat(new T.RingGeometry(.86,1,48)),{add:true,side:T.DoubleSide,max:96,order:-2});
+  this.discs=B(flat(new T.CircleGeometry(1,32)),{add:true,map,max:64,order:-3});
+  this.orbs=B(new T.SphereGeometry(1,16,12),{add:true,max:192,order:3});
+  this.puffs=B(new T.IcosahedronGeometry(1,1),{toon:true,solid:true,max:192,order:1});
+  this.chunks=B(new T.DodecahedronGeometry(1,0),{toon:true,solid:true,max:128,order:1});
+  this.stars=B(starGeometry(),{add:true,max:192,order:4});
+  this.beams=B(new T.CylinderGeometry(1,1,1,8,1,true),{add:true,max:96,order:3});
+  this.decals=B(flat(new T.CircleGeometry(1,24)),{map,max:48,order:-4});
+  // Peças coloridas com transparência normal: no aditivo a cor somada com a grama clara vira branco.
+  this.cstars=B(starGeometry(),{top:true,max:160,order:6});
+  this.balls=B(new T.SphereGeometry(1,14,10),{max:192,order:3});
+  this.rays=B(new T.CylinderGeometry(1,1,1,8,1,true),{max:96,order:3});
   this.bubbles=new Bubbles(this.scene,this.software);
-  this.poolList=[this.rings,this.discs,this.orbs,this.puffs,this.chunks,this.stars,this.beams,this.decals,this.bubbles];
+  this.poolList=[this.rings,this.discs,this.orbs,this.puffs,this.chunks,this.stars,this.beams,this.decals,this.cstars,this.balls,this.rays,this.bubbles];
   this.projectiles=new ModelPool(this.scene,key=>{const [kind,side]=key.split(':');return projectileModel(kind,side);});
   this.deployRing=new T.Mesh(flat(new T.RingGeometry(.9,1,48)),new T.MeshBasicMaterial({color:palette.ally,side:T.DoubleSide,transparent:true,opacity:.85,depthWrite:false}));this.deployRing.visible=false;this.scene.add(this.deployRing);
   this.zone=new T.Mesh(new T.PlaneGeometry(18,12),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.12,depthWrite:false}));this.zone.rotation.x=-Math.PI/2;this.zone.position.set(0,.06,7);this.zone.visible=false;this.scene.add(this.zone);
@@ -262,7 +311,7 @@ export class Arena3D{
 
  /* ── Tropas e torres ───────────────────────────────────────────────────────────────────── */
  addEntity(key,e){
-  const isTower=e.kind==='tower',model=isTower?towerModel(e.side,e.king):unitModel(e.card.art,e.side);this.scene.add(model);
+  const isTower=e.kind==='tower',model=isTower?towerModel(e.side,e.king):unitModel(e.card.art,e.side,!!e.heroi);this.scene.add(model);
   // Tropa não entra no mapa de sombra (ele é estático); a sombra dela é a redonda das Marks.
   if(!isTower)model.traverse(o=>{o.castShadow=false;});else this.renderer.shadowMap.needsUpdate=true;
   const bar=this.label(key,model,e);const entry={model,bar,oldX:e.x,oldY:e.y,angle:e.side==='ally'?Math.PI:0,rig:{},landed:!(e.deploy>0),alive:e.alive!==false};
@@ -291,13 +340,16 @@ export class Arena3D{
     this.bubbleOf(n,e,m,time,dt);
    }else if(n.rig.turret){n.rig.turret.rotation.y=Math.PI/2-(e.aim||0);const k=e.recoil||0;n.rig.turret.position.set(Math.cos(e.aim||0)*-k*.16,n.turretY,Math.sin(e.aim||0)*-k*.16);}
    n.oldX=e.x;n.oldY=e.y;
+   // Herói: anel dourado em volta do anel do time e brilhos dourados subindo de vez em quando.
+   if(!tower&&e.heroi){const r=(e.r||24)/64;this.feet.add(m.position.x,.045,m.position.z,r*2.15,'#ffd84d');
+    if(time-(n.sparkAt||0)>.45){n.sparkAt=time;const a=Math.random()*TAU;this.spawn({kind:'spark',x:e.x+Math.cos(a)*r*64,y:e.y+Math.sin(a)*r*64,h:.2+Math.random()*.6,vx:0,vz:0,vy:1.1,g:0,c:'#ffd84d',s:.07,life:.7});}}
    if(!tower){const r=(e.r||24)/64;if(!e.air)this.feet.add(m.position.x,.05,m.position.z,r*1.6,palette[e.side]);this.blobs?.add(m.position.x,.035,m.position.z,r*(e.air?1.1:1.5),'#1d3812');}
    const show=tower||e.hp<e.maxHp;n.bar.el.hidden=!show;
    if(show){m.getWorldPosition(v3);v3.y+=(m.userData.height||2.5)+.17;v3.project(this.camera);n.bar.el.style.transform=`translate(${(v3.x*.5+.5)*this.w}px,${(-v3.y*.5+.5)*this.h}px) translate(-50%,-100%)`;const value=Math.ceil(Math.max(0,e.hp));if(n.bar.value!==value){n.bar.value=value;n.bar.text.textContent=tower?value:'';n.bar.fill.style.transform=`scaleX(${clamp(e.hp/e.maxHp,0,1)})`;n.bar.fill.style.background=palette[e.side];}n.bar.el.hidden=Math.abs(v3.x)>1||Math.abs(v3.y)>1;}
   }
   for(const [key,n] of this.entities)if(!seen.has(key)){
    n.bar.el.hidden=true;
-   if(key.startsWith('u:')&&battle){if(!animateDeath(n,dt))continue;const p=n.model.position;this.poof((p.x+9)*TILE,(p.z+13)*TILE,p.y,n.model.userData.height||1.6);}
+   if(key.startsWith('u:')&&battle){if(!animateDeath(n,dt))continue;const p=n.model.position;this.poof((p.x+9)*TILE,(p.z+13)*TILE,p.y,n.model.userData.height||1.6,palette[key.split(':')[3]]);}
    this.scene.remove(n.model);releaseModel(n.model);
    // Torres são montadas na hora (não vêm do cache): libera a geometria delas.
    if(n.ruin){this.scene.remove(n.ruin);for(const o of [n.model,n.ruin])o.traverse(c=>{if(c.isMesh)c.geometry.dispose();});this.renderer.shadowMap.needsUpdate=true;}n.bar.el.remove();this.entities.delete(key);
@@ -306,9 +358,86 @@ export class Arena3D{
  }
 
  /* ── Efeitos 3D próprios (puff de morte, poeira, estilhaços, clarão) ───────────────────── */
- spawn(o){if(this.fx3.length<220)this.fx3.push({t:0,...o});}
- poof(x,y,h,size){for(let i=0;i<7;i++){const a=i/7*TAU;this.spawn({kind:'puff',x,y,h:h+.3+i%3*.15,vx:Math.cos(a)*1.1,vz:Math.sin(a)*1.1,vy:.8+(i%3)*.3,r:.22*size,life:.55});}
+ spawn(o){if(this.fx3.length<420)this.fx3.push({t:0,...o});}   // t<0: espera antes de aparecer
+ poof(x,y,h,size,col='#ffffff'){for(let i=0;i<7;i++){const a=i/7*TAU;this.spawn({kind:'puff',x,y,h:h+.3+i%3*.15,vx:Math.cos(a)*1.1,vz:Math.sin(a)*1.1,vy:.8+(i%3)*.3,r:.22*size,life:.55});}
+  this.spawn({kind:'star',x,y,h:h+.55*size,c:col,s0:.2,s1:.55*size,life:.24,a:.8,spin:Math.random()*TAU,vs:3});
   this.spawn({kind:'sparkle',x,y,h:h+.6,life:.45,c:'#fff6c8'});}
+ // Efeitos pedidos pelo engine (FX.bursts, ver burst3 no engine.js). `q` diminui a quantidade de peças
+ // no modo leve e sem WebGL.
+ fxBurst(b,q){
+  const n=v=>Math.max(1,Math.round(v*q)),X=b.x,Y=b.y,rand=(a,c)=>a+Math.random()*(c-a);
+  if(!Number.isFinite(X)||!Number.isFinite(Y))return;
+  if(b.k==='hit'){
+   const h=.25+(b.z||0)/64,s=b.big?1.6:1,ang=b.ang||0;
+   // Impacto cartoon: estrela amarela com núcleo branco girando; faíscas na cor do time de quem bateu.
+   this.spawn({kind:'star',x:X,y:Y,h,c:'#ffd23f',s0:.25*s,s1:.72*s,life:.22,a:.95,spin:Math.random()*TAU,vs:-3});
+   this.spawn({kind:'star',x:X,y:Y,h,c:'#ffffff',s0:.14*s,s1:.46*s,life:.16,spin:Math.random()*TAU,vs:5});
+   for(let i=0;i<n(b.big?7:4);i++){const a=ang+rand(-.9,.9),sp=rand(1.5,3.2)*s;this.spawn({kind:'spark',x:X,y:Y,h,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:rand(1,2.6),c:i%2?(b.col||'#fff3b0'):'#ffffff',s:.09*s,life:rand(.24,.38)});}
+   if(b.big){this.spawn({kind:'shock',x:X,y:Y,r0:.2,r1:1.3,life:.35,c:'#fff1c9'});
+    for(let i=0;i<n(5);i++){const a=i/5*TAU+Math.random();this.spawn({kind:'puff',x:X+Math.cos(a)*14,y:Y+Math.sin(a)*14,h:.12,vx:Math.cos(a)*1.3,vz:Math.sin(a)*1.3,vy:.4,r:.16,c:'#efe3c4',life:.45});}}
+  }else if(b.k==='boom'){
+   // Explosão cartoon: clarão, bola de fogo em camadas, onda no chão, fumaça que incha e some, brasas.
+   const R=Math.max(.3,(b.r||40)/64),big=R>1.3,c1=b.col||'#ff7a2a',c2=b.col2||'#ffe9a8';
+   this.spawn({kind:'flash',x:X,y:Y,h:.3+R*.3,r:R*.9,life:.12,c:'#fff7e0'});
+   this.spawn({kind:'ball',x:X,y:Y,h:.2+R*.35,r0:R*.25,r1:R*.6,c:'#ffffff',c2,life:.2,a:1});
+   this.spawn({kind:'ball',x:X,y:Y,h:.2+R*.4,r0:R*.35,r1:R*.85,c:c2,c2:c1,life:.34,a:.9,rise:.6});
+   this.spawn({kind:'ball',x:X,y:Y,h:.2+R*.45,r0:R*.45,r1:R*1.1,c:c1,c2:'#ff3d1a',life:.45,a:.5,rise:.9});
+   this.spawn({kind:'shock',x:X,y:Y,r0:R*.3,r1:R*1.7,life:.45,c:c2});
+   // A fumaça nasce um instante depois (t negativo = espera), por trás da bola de fogo, e clareia ao subir.
+   const smoke=big?10:6;for(let i=0;i<n(smoke);i++){const a=i/smoke*TAU+Math.random()*.6,d=R*rand(.3,.75);this.spawn({kind:'puff',t:-rand(.08,.16),x:X+Math.cos(a)*d*64,y:Y+Math.sin(a)*d*64,h:.2+R*rand(.15,.45),vx:Math.cos(a)*R*.8,vz:Math.sin(a)*R*.8,vy:rand(.6,1.5),r:R*rand(.14,.22),c:'#8d8790',c2:'#e4ded4',life:rand(.75,1.1)});}
+   for(let i=0;i<n(big?8:4);i++){const a=Math.random()*TAU,sp=rand(1.5,3.5)*Math.max(.7,R*.6);this.spawn({kind:'drop',x:X,y:Y,h:.3+R*.3,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:rand(2,4.5),r:.05,c:i%2?'#ffb347':'#ffe08a',life:rand(.5,.9),g:9});}
+   if(big)for(let i=0;i<n(6);i++){const a=i*1.1+Math.random();this.spawn({kind:'chunk',x:X,y:Y,h:.3,vx:Math.cos(a)*3,vz:Math.sin(a)*3,vy:3+Math.random()*2,r:.08+Math.random()*.06,life:.9,c:'#5b3d2a'});}
+  }else if(b.k==='deploy'){
+   // Carta jogada: coluna de luz do time descendo do céu, anel no chão e brilhos subindo.
+   this.spawn({kind:'pillar',x:X,y:Y,r:.2,hgt:4.5,c:b.col||'#ffffff',life:.42});
+   this.spawn({kind:'shock',x:X,y:Y,r0:.15,r1:.95,life:.35,c:b.col||'#ffffff'});
+   for(let i=0;i<n(5);i++){const a=i/5*TAU+Math.random();this.spawn({kind:'spark',x:X+Math.cos(a)*20,y:Y+Math.sin(a)*20,h:.1,vx:Math.cos(a)*.6,vz:Math.sin(a)*.6,vy:rand(2.2,3.4),g:2,c:'#ffffff',s:.07,life:rand(.4,.6)});}
+  }else if(b.k==='pop'){
+   const h=.25+(b.z||0)/64;
+   this.spawn({kind:'flash',x:X,y:Y,h,r:.45,life:.12,c:'#e6faff'});
+   this.spawn({kind:'airring',x:X,y:Y,h,r0:.25,r1:1.0,life:.28,c:'#dff7ff'});
+   for(let i=0;i<n(10);i++){const a=i/10*TAU,sp=rand(1.4,2.6);this.spawn({kind:'drop',x:X,y:Y,h,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:rand(.5,2.5),r:rand(.04,.07),c:i%3?'#9fe6ff':'#ffffff',life:rand(.45,.7),g:9});}
+  }else if(b.k==='splash'){
+   const R=(b.r||100)/64;
+   this.spawn({kind:'shock',x:X,y:Y,r0:R*.2,r1:R*1.1,life:.4,c:'#9fe6ff'});
+   for(let i=0;i<n(8);i++){const a=i/8*TAU;this.spawn({kind:'drop',x:X+Math.cos(a)*R*48,y:Y+Math.sin(a)*R*48,h:.1,vx:Math.cos(a)*.8,vz:Math.sin(a)*.8,vy:rand(2.4,3.6),r:.05,c:'#bff1ff',life:.6,g:9});}
+  }else if(b.k==='land'){this.dust(X,Y,(b.r||24)/64);}
+  else if(b.k==='rain'){
+   // Chuva de bolhas do Herói: clarão dourado, ondas dourada e azul e bolhas subindo em toda a área.
+   const R=(b.r||200)/64;
+   this.spawn({kind:'flash',x:X,y:Y,h:1,r:.9,life:.18,c:'#fff1b0'});
+   this.spawn({kind:'shock',x:X,y:Y,r0:.3,r1:R,life:.5,c:'#ffd84d'});this.spawn({kind:'shock',x:X,y:Y,r0:.2,r1:R*.8,life:.6,c:'#9fe6ff'});
+   for(let i=0;i<n(16);i++){const a=Math.random()*TAU,d=Math.sqrt(Math.random())*R*64;this.spawn({kind:'drop',x:X+Math.cos(a)*d,y:Y+Math.sin(a)*d,h:.1,vx:0,vz:0,vy:rand(2.5,4.5),g:3,r:rand(.06,.12),c:i%3?'#bff1ff':'#ffffff',life:rand(.6,.9)});}
+   for(let i=0;i<n(8);i++){const a=i/8*TAU;this.spawn({kind:'spark',x:X,y:Y,h:1,vx:Math.cos(a)*2.4,vz:Math.sin(a)*2.4,vy:1.5,g:4,c:'#ffd84d',s:.1,life:.5});}
+  }
+  else if(b.k==='chip'){
+   // Torre atingida: lascas de pedra e um pouco de poeira saindo do alto.
+   const h=b.king?2.3:1.9;
+   for(let i=0;i<n(3);i++){const a=Math.random()*TAU,sp=rand(.8,1.8);this.spawn({kind:'chunk',x:X+Math.cos(a)*20,y:Y+Math.sin(a)*20,h,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:rand(1.5,3),r:rand(.04,.07),life:.7,c:i%2?palette.stone:palette.stoneDark});}
+   this.spawn({kind:'puff',x:X,y:Y,h:h-.2,vx:0,vz:0,vy:.5,r:.14,c:'#ece4d2',life:.4});
+  }
+ }
+ // Ponto do voo de um projétil no instante k (0 a 1), igual ao usado para desenhar o modelo.
+ projPoint(p,k){
+  const D=Math.max(1,Math.hypot(p.tx-p.sx,p.ty-p.sy)),x=mix(p.sx,p.tx,k),y=mix(p.sy,p.ty,k),arc=p.arc?Math.sin(k*Math.PI)*D*p.arc*.5:0,lift=mix(p.lift0||45,p.lift1||25,k);
+  return v5.set(x/64-9,.25+(arc+lift)/64,(y+lift)/64-13);
+ }
+ // Números de dano: um <span> por número, reaproveitados; sobem, crescem na hora e somem no fim.
+ numbersFrame(FX){
+  const list=FX.texts||[];let i=0;
+  for(;i<list.length&&i<40;i++){
+   const t=list[i];let el=this.numbers[i];
+   if(!el){el=document.createElement('span');el.className='dmgNum';this.numberLayer.append(el);this.numbers.push(el);}
+   const a=clamp(t.life/(t.max||.85),0,1),age=1-a;
+   v3.set(t.x/64-9,.25+(t.h||40)/64+age*.8,t.y/64-13);this.scene.localToWorld(v3);v3.project(this.camera);
+   if(Math.abs(v3.x)>1.1||Math.abs(v3.y)>1.1||v3.z>1){el.hidden=true;continue;}
+   el.hidden=false;if(el._v!==t.v){el._v=t.v;el.textContent=t.v;}if(el._c!==t.col){el._c=t.col;el.style.color=t.col;}
+   const pop=age<.12?.55+age/.12*.75:1.3-Math.min(1,(age-.12)/.25)*.3,big=t.v>=300?1.35:1;
+   el.style.transform=`translate(${((v3.x*.5+.5)*this.w).toFixed(1)}px,${((-v3.y*.5+.5)*this.h).toFixed(1)}px) translate(-50%,-50%) scale(${(pop*big).toFixed(3)})`;
+   el.style.opacity=a<.3?(a/.3).toFixed(2):'1';
+  }
+  for(;i<this.numbers.length;i++)this.numbers[i].hidden=true;
+ }
  dust(x,y,r){for(let i=0;i<6;i++){const a=i/6*TAU;this.spawn({kind:'puff',x:x+Math.cos(a)*r*40,y:y+Math.sin(a)*r*40,h:.1,vx:Math.cos(a)*1.4,vz:Math.sin(a)*1.4,vy:.35,r:.16+r*.15,life:.45});}
   this.spawn({kind:'shock',x,y,r0:.2,r1:r*2.6+.6,life:.35,c:'#ffffff'});}
  burst(x,y,size,tower=false){
@@ -334,9 +463,23 @@ export class Arena3D{
  }
  stunStars(m,time,id){const h=m.position.y+(m.userData.height||1.6)*.98;for(let i=0;i<3;i++){const a=time*5+i*TAU/3+id;const s=this.stars.get('#ffe14d',.95);s.position.set(m.position.x+Math.cos(a)*.38,h+Math.sin(a*2)*.05,m.position.z+Math.sin(a)*.38);s.scale.setScalar(.11);s.rotation.set(0,a*2,0);}}
  updateFx3(dt){
-  for(let i=this.fx3.length-1;i>=0;i--){const f=this.fx3[i];f.t+=dt;const k=f.t/f.life;if(k>=1){this.fx3.splice(i,1);continue;}
+  for(let i=this.fx3.length-1;i>=0;i--){const f=this.fx3[i];f.t+=dt;const k=f.t/f.life;if(k>=1){this.fx3.splice(i,1);continue;}if(k<0)continue;
    const x=f.x/64-9,z=f.y/64-13;
-   if(f.kind==='puff'){const m=this.puffs.get('#fbfbf4',.85*(1-k)*(1-k*.5));m.position.set(x+f.vx*f.t*.6,f.h+f.vy*f.t*.7,z+f.vz*f.t*.6);m.scale.setScalar(f.r*(.6+k*1.3));m.rotation.set(f.t*2,f.t*3,0);}
+   // Fumaça cartoon: incha rápido, sobe e encolhe até sumir (sem transparência, como nos desenhos).
+   if(f.kind==='puff'){const grow=easeOut(Math.min(1,k*2.2)),shrink=k<.55?1:1-((k-.55)/.45)**2;
+    const m=this.puffs.get(f.c2?lerpColor(f.c,f.c2,k):f.c||'#fbfbf4',1);m.position.set(x+f.vx*f.t*.6,f.h+f.vy*f.t*.7,z+f.vz*f.t*.6);m.scale.setScalar(Math.max(.001,f.r*(.5+grow*1.1)*shrink));m.rotation.set(f.t*2,f.t*3,0);}
+   // Estrela de frente para a câmera (impacto, morte): cresce girando e apaga.
+   else if(f.kind==='star'){const m=this.cstars.get(f.c,(f.a??1)*(1-k*k));m.position.set(x,f.h,z);m.quaternion.copy(this.camera.quaternion);m.rotateZ((f.spin||0)+f.t*(f.vs||0));m.scale.setScalar(mix(f.s0,f.s1,easeOut(k)));}
+   // Faísca em estrela que voa com gravidade.
+   else if(f.kind==='spark'){const m=this.cstars.get(f.c,1-k);m.position.set(x+f.vx*f.t,Math.max(.05,f.h+f.vy*f.t-.5*(f.g??9)*f.t*f.t),z+f.vz*f.t);m.quaternion.copy(this.camera.quaternion);m.rotateZ(f.t*9);m.scale.setScalar(f.s*(1-k*.6));}
+   // Gota ou brasa: bolinha brilhante com gravidade.
+   else if(f.kind==='drop'){const m=this.balls.get(f.c,1-k*k);m.position.set(x+f.vx*f.t,Math.max(.04,f.h+f.vy*f.t-.5*(f.g??9)*f.t*f.t),z+f.vz*f.t);m.scale.setScalar(f.r*(1-k*.5));}
+   // Camada da bola de fogo: cresce, sobe um pouco e muda de cor.
+   else if(f.kind==='ball'){const m=this.balls.get(lerpColor(f.c,f.c2||f.c,k),(f.a??1)*(1-k)**1.5);m.position.set(x,f.h+(f.rise||0)*k,z);m.scale.setScalar(mix(f.r0,f.r1,easeOut(k)));}
+   // Coluna de luz da entrada: desce do céu e afina.
+   else if(f.kind==='pillar'){const top=f.hgt*(1-k*.35),r=f.r*(1-k);v5.set(x,0,z);this.beam(v5,v3.set(x,top,z),r,f.c,.55*(1-k),this.rays);if(r>.04)this.beam(v5,v3.set(x,top,z),r*.35,'#ffffff',.85*(1-k),this.rays);this.disc(f.x,f.y,.6*(1-k*.5),f.c,.35*(1-k));}
+   // Anel no ar de frente para a câmera (estouro da bolha).
+   else if(f.kind==='airring'){const m=this.rings.get(f.c,.8*(1-k));m.position.set(x,f.h,z);m.quaternion.copy(this.camera.quaternion).multiply(faceUp);m.scale.setScalar(mix(f.r0,f.r1,easeOut(k)));}
    else if(f.kind==='chunk'){const m=this.chunks.get(f.c,1);m.position.set(x+f.vx*f.t,Math.max(.08,f.h+f.vy*f.t-9*f.t*f.t),z+f.vz*f.t);m.scale.setScalar(f.r);m.rotation.set(f.t*7,f.t*5,0);}
    else if(f.kind==='flash'){const m=this.orbs.get(f.c,(1-k)*(1-k)*.55);m.position.set(x,f.h,z);m.scale.setScalar(f.r*(.5+k*.7));}
    else if(f.kind==='shock'){const m=this.rings.get(f.c,(1-k)*.7);m.position.set(x,.07,z);m.scale.setScalar(mix(f.r0,f.r1,1-(1-k)*(1-k)));}
@@ -348,10 +491,12 @@ export class Arena3D{
  ring(x,y,r,c,a=1,height=.075){const m=this.rings.get(c,a);m.position.set(x/64-9,height,y/64-13);m.scale.setScalar(Math.max(.03,r));return m;}
  disc(x,y,r,c,a=1){const m=this.discs.get(c,a);m.position.set(x/64-9,.06,y/64-13);m.scale.setScalar(Math.max(.03,r));return m;}
  orb(x,y,h,r,c,a=1){const m=this.orbs.get(c,a);m.position.set(x/64-9,h,y/64-13);m.scale.setScalar(Math.max(.025,r));return m;}
- beam(a1,b,r,c,a=1){const m=this.beams.get(c,a);v4.subVectors(b,a1);const length=v4.length();m.position.copy(a1).addScaledVector(v4,.5);m.quaternion.setFromUnitVectors(up,v4.normalize());m.scale.set(r,length,r);return m;}
+ beam(a1,b,r,c,a=1,batch=this.beams){const m=batch.get(c,a);v4.subVectors(b,a1);const length=v4.length();m.position.copy(a1).addScaledVector(v4,.5);m.quaternion.setFromUnitVectors(up,v4.normalize());m.scale.set(r,length,r);return m;}
  effects(G,FX,time,quality,dt){this.projectiles.reset();
   // Ondas de choque no chão (anéis do engine).
   for(const r of FX.rings.slice(-32)){const k=1-clamp(r.life/(r.max||.4),0,1);const radius=mix(r.r0,r.r1,k)/64;this.ring(r.x,r.y,radius,r.col,(1-k)*.6);if(quality>.5&&radius>.5)this.disc(r.x,r.y,radius,r.col,(1-k)*.12);}
+  // Efeitos 3D pedidos pelo engine neste quadro (golpes, explosões, entradas...).
+  if(FX.bursts?.length){const q=(this.software?.45:1)*(quality<.5?.6:1);for(const b of FX.bursts)this.fxBurst(b,q);FX.bursts.length=0;}
   // Projéteis com modelo 3D apontando na direção do voo (arco das bombas incluído).
   for(const p of G.projs.slice(-100)){
    const k=clamp(p.t/p.dur,0,1),lift=mix(p.lift0||45,p.lift1||25,k),h=.25+((p.z||0)+lift)/64,D=Math.max(1,Math.hypot(p.tx-p.sx,p.ty-p.sy));
@@ -364,6 +509,8 @@ export class Arena3D{
    if(kind==='bomb'||kind==='ball'){m.rotation.set(time*9,ang,0);}
    else m.rotation.set(-Math.atan(slope)*.8,Math.PI/2-ang,0,'YXZ');
    if(kind==='bolt'&&quality>.5)this.orb(p.x,p.y+lift,h,.09,'#ffe7a8',.55);
+   // Rastro de luz atrás da flecha e do tiro da balestra.
+   if(kind==='arrow'||kind==='bolt'){const back=Math.max(0,k-(kind==='bolt'?58:44)/D);if(k-back>.01)this.beam(this.projPoint(p,back),v3.copy(m.position),kind==='bolt'?.035:.02,kind==='bolt'?'#ffd98a':'#ffffff',kind==='bolt'?.6:.5,this.rays);}
   }
   for(const d of FX.decals.slice(-28)){const m=this.decals.get(d.col,Math.min(.28,(d.a||.2)*Math.min(1,d.life/2)));m.position.set(d.x/64-9,.05,d.y/64-13);m.scale.setScalar(d.r/64);}
   // Feitiços: Bólide cai do céu com rastro; Estalo marca o chão antes dos raios.
@@ -381,8 +528,10 @@ export class Arena3D{
   }
   // Quando um feitiço some, ele acabou de explodir: clarão e onda 3D.
   for(const f of this.seenFields)if(!live.has(f)){const R=(f.s?.raio||2);
-   if(f.kind==='meteor'){this.burst(f.x,f.y,R*.55);for(let i=0;i<8;i++){const a=i*.8;this.spawn({kind:'chunk',x:f.x,y:f.y,h:.3,vx:Math.cos(a)*3,vz:Math.sin(a)*3,vy:3+(i%3),r:.1,life:.8,c:'#5b3d2a'});}}
-   else if(f.kind==='zapmark'){this.spawn({kind:'flash',x:f.x,y:f.y,h:.8,r:R*.4,life:.18,c:'#c9f4ff'});this.spawn({kind:'shock',x:f.x,y:f.y,r0:.3,r1:R*1.2,life:.35,c:'#9fe8ff'});}}
+   // A bola de fogo e a fumaça do Bólide vêm do explode() do engine; aqui ficam as pedras voando.
+   if(f.kind==='meteor'){for(let i=0;i<8;i++){const a=i*.8;this.spawn({kind:'chunk',x:f.x,y:f.y,h:.3,vx:Math.cos(a)*3,vz:Math.sin(a)*3,vy:3+(i%3),r:.1,life:.8,c:'#5b3d2a'});}}
+   else if(f.kind==='zapmark'){this.spawn({kind:'flash',x:f.x,y:f.y,h:.8,r:R*.4,life:.18,c:'#c9f4ff'});this.spawn({kind:'shock',x:f.x,y:f.y,r0:.3,r1:R*1.2,life:.35,c:'#9fe8ff'});
+    for(let i=0;i<10;i++){const a=i/10*TAU;this.spawn({kind:'spark',x:f.x,y:f.y,h:.3,vx:Math.cos(a)*3,vz:Math.sin(a)*3,vy:2.2,c:i%2?'#cff3ff':'#ffffff',s:.09,life:.42});}}}
   this.seenFields=live;
   // Raios: do céu até o chão quando vêm de cima; entre unidades quando são horizontais.
   for(const bolt of FX.bolts){const seg=bolt.seg;if(!seg?.length)continue;const fade=clamp(bolt.life/(bolt.max||1),0,1);
@@ -390,7 +539,7 @@ export class Arena3D{
    const pt=s=>sky?new T.Vector3(s.x/64-9,.15+(last.y-s.y)/64*1.6,last.y/64-13):new T.Vector3(s.x/64-9,.7,s.y/64-13);
    for(let j=1;j<seg.length;j++){const a=pt(seg[j-1]),b=pt(seg[j]);this.beam(a,b,.03,'#ffffff',fade);if(quality>.5)this.beam(a,b,.09,bolt.col||'#9fe8ff',fade*.4);}
   }
-  this.updateFx3(dt);
+  this.updateFx3(dt);this.numbersFrame(FX);
   this.particles.update(FX.parts,this.h,this.renderer.getPixelRatio(),quality);this.smoke.update(FX.parts,this.h,this.renderer.getPixelRatio(),quality);
   for(const p of this.poolList)p.finish();
  }
@@ -419,7 +568,7 @@ export class Arena3D{
  }
  render({G,FX,UI,CARD,PREF,QUALITY},time){if(!this.ready)return;
   if(this.software&&this.last&&time-this.last<1/30)return;
-  const dt=Math.min(.1,time-(this.last||time));this.last=time;
+  const dt=clamp(time-(this.last||time),0,.1);this.last=time;
   this.tune(time,!!PREF.light);
   if(this.cameraBase){this.camera.position.copy(this.cameraBase);if(PREF.fx&&FX.shake>.5){this.camera.position.x+=Math.sin(time*49)*FX.shake*.004;this.camera.position.y+=Math.cos(time*43)*FX.shake*.003;}this.camera.lookAt(this.target);this.camera.updateMatrixWorld();}
   this.waterMat.uniforms.time.value=time;
@@ -433,6 +582,8 @@ export class Arena3D{
     this.ghost.visible=true;this.ghost.position.copy(world(UI.wx,UI.wy));if(card.ar)this.ghost.position.y+=.55;this.ghost.rotation.y=Math.PI;this.ghostMat.color.set(UI.valid?'#9cf5d8':'#ff7770');
    }
   }
+  // Clarão de tela (explosões, torre caindo); some com o botão de efeitos desligado.
+  const flash=PREF.fx?Math.min(.5,FX.flash||0):0;if(Math.abs(flash-this.flashA)>.004){this.flashA=flash;this.flashEl.style.opacity=flash.toFixed(3);if(flash>0)this.flashEl.style.background=FX.flashColor||'#fff';}
   this.renderer.render(this.scene,this.camera);this.framesRendered=(this.framesRendered||0)+1;
  }
 }
@@ -444,8 +595,8 @@ window.createArena3D=options=>new Arena3D(options);
    Um renderizador pequeno e separado fotografa cada tropa uma vez numa pose de ação.
    Sem WebGL devolve null e o engine continua com a arte 2D. */
 const portraits=new Map();let portraitKit=null;
-function cardPortrait(art,side='ally'){
- const key=art+':'+side;if(portraits.has(key))return portraits.get(key);
+function cardPortrait(art,side='ally',hero=false){
+ const key=art+':'+side+(hero?':heroi':'');if(portraits.has(key))return portraits.get(key);
  let out=null;
  try{
   if(!portraitKit){
@@ -455,7 +606,7 @@ function cardPortrait(art,side='ally'){
    const scene=new T.Scene();scene.add(new T.HemisphereLight(0xffffff,0x7aa05a,1.7));const sun=new T.DirectionalLight(0xfff0d8,2.4);sun.position.set(2,4,5);scene.add(sun);
    portraitKit={renderer,scene,camera:new T.PerspectiveCamera(26,220/240,.1,50)};
   }
-  const {renderer,scene,camera}=portraitKit,model=unitModel(art,side);scene.add(model);
+  const {renderer,scene,camera}=portraitKit,model=unitModel(art,side,hero);scene.add(model);
   const rig={};for(const name of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop'])rig[name]=model.getObjectByName(name);
   // Pose de ação: meio da preparação do ataque, virado 3/4 para a câmera.
   const n={model,rig,oldX:0,oldY:0,angle:.45},e={id:3,x:0,y:0,heading:Math.PI/2-.45,ph:1.2,moving:false,card:{art,deploy:1},attackWindup:.07,attackPrep:.16,atk:0,hurt:0,deploy:0,air:art==='bat'};
