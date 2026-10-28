@@ -281,41 +281,57 @@ const builders={
   });
  },
  // Princesa da Bolha: vestido em sino da cor do time, tiara, cabelo longo e espada de bolhas que brilha.
- // `hero`: versão Herói (referência do dono): coroa, ombreiras e gema douradas, mantendo a cor do time.
+ // `hero`: versão Herói (design do dono): coroa dourada com gema azul, ombreiras, cinto, braceletes e losango
+ // dourados, vestido em dois tons com uma bolha e um cetro com uma bolha grande na ponta; mantém a cor do time.
  princess(t,hero=false){
-  const C=team(t),H='#ffd65c',HD='#e9a93a',B='#9fe6ff',G=palette.gold;
-  return humanoid({style:'sword',shirt:C,sleeve:hero?G:'#fff4fb',pants:palette.skin,boots:'#f2f0ff',bodyR:.22,bodyScale:[1,1.15,.85],legR:.07,armR:.06,handR:.08,scale:.98,
+  const C=team(t),H='#ffd65c',HD='#e9a93a',B='#9fe6ff',G=palette.gold,GEM='#3d8bff',
+   CL='#'+new T.Color(C).lerp(new T.Color('#ffffff'),.32).getHexString();
+  return humanoid({style:'sword',shirt:C,sleeve:hero?C:'#fff4fb',pants:palette.skin,boots:'#f2f0ff',bodyR:.22,bodyScale:[1,1.15,.85],legR:.07,armR:.06,handR:.08,scale:.98,
    body(p,{bodyY,bodyR}){
-    // saia em sino com babado branco e barra dourada
-    p.lathe([[.46,bodyY-.64],[.44,bodyY-.6],[.32,bodyY-.36],[bodyR*1.05,bodyY-.14],[bodyR*.85,bodyY-.02]],C,0,0,0,18);
-    p.ring(0,bodyY-.62,0,.45,.035,palette.gold,Math.PI/2);
-    for(let i=0;i<5;i++){const a=i/5*Math.PI*2+.3;p.ball(Math.sin(a)*.36,bodyY-.42,Math.cos(a)*.36,.05,B,1,1,1,{glow:true},6);}
-    if(hero){p.ring(0,bodyY-.02,0,bodyR*.92,.035,G,Math.PI/2);p.box(0,bodyY+.08,bodyR*.86,.1,.1,.05,G,0,0,Math.PI/4);p.box(0,bodyY+.08,bodyR*.9,.05,.05,.04,'#fff3c0',0,0,Math.PI/4,{glow:true});}
-    else p.ball(0,bodyY+.1,bodyR*.82,.05,B,1,1,1,{glow:true},6);
+    // saia em sino com barra dourada
+    const skirt=[[.46,bodyY-.64],[.44,bodyY-.6],[.32,bodyY-.36],[bodyR*1.05,bodyY-.14],[bodyR*.85,bodyY-.02]];
+    p.lathe(skirt,C,0,0,0,18);
+    p.ring(0,bodyY-.62,0,.45,.035,G,Math.PI/2);
+    if(hero){
+     // painel da frente mais claro (dois tons) com uma bolha, cinto com fivela e losango dourado no peito
+     p.add(new T.LatheGeometry(skirt.map(([a,b])=>new T.Vector2(a*1.015,b)),LOW?3:6,-.5,1),CL);
+     p.ball(.09,bodyY-.42,.375,.055,B,1,1,1,{glow:true},8);
+     p.ring(0,bodyY-.02,0,bodyR*.92,.04,G,Math.PI/2);p.box(0,bodyY-.02,bodyR*.9,.1,.065,.045,G);
+     p.box(0,bodyY+.11,bodyR*.86,.1,.1,.05,G,0,0,Math.PI/4);p.box(0,bodyY+.11,bodyR*.9,.05,.05,.04,'#fff3c0',0,0,Math.PI/4,{glow:true});
+    }else{
+     for(let i=0;i<5;i++){const a=i/5*Math.PI*2+.3;p.ball(Math.sin(a)*.36,bodyY-.42,Math.cos(a)*.36,.05,B,1,1,1,{glow:true},6);}
+     p.ball(0,bodyY+.1,bodyR*.82,.05,B,1,1,1,{glow:true},6);
+    }
    },
    head(p,{hc,R}){
     const [x,y,z]=hc;
-    // cabelo: volume atrás, franja e duas mechas longas
-    p.ball(x,y+R*.05,z-R*.18,R*1.08,H,1,1.02,1,undefined,12);
+    // cabelo: volume atrás, franja e mechas longas (o Herói tem mais volume, como no design)
+    p.ball(x,y+R*.05,z-R*.18,R*1.08,H,hero?1.14:1,hero?1.08:1.02,hero?1.06:1,undefined,12);
     p.dome(x,y+R*.12,z+R*.08,R*1.04,H,.42,1,1,1,-.45);
     p.capsule(x,y-R*.75,z-R*.55,R*.42,R*.9,HD,.25);
     for(const s of [-1,1])p.capsule(x+s*R*.86,y-R*.55,z+R*.1,R*.17,R*.7,H,0,0,s*.12);
     eyes(p,x,y-R*.12,z,R,{lash:true,size:.16,spread:.36});smile(p,x,y,z,R,{w:.11});
     for(const s of [-1,1])p.ball(x+s*R*.55,y-R*.32,z+R*.74,R*.12,'#ff9ec2',1,.6,.4,{outline:false},8);
-    // tiara com gema de bolha (Herói: coroa dourada)
-    if(hero)p.at(x,y+R*.9,z-R*.02,-.15,0,0,q=>{q.cyl(0,0,0,R*.42,R*.45,R*.2,G,12);
-     for(let i=0;i<5;i++){const a=i/5*Math.PI*2;q.cone(Math.sin(a)*R*.38,R*.24,Math.cos(a)*R*.38,R*.1,R*.28,G,0,0,0,undefined,5);}
-     q.ball(0,R*.02,R*.45,R*.09,B,1,1,1,{glow:true},6);});
+    // tiara com gema de bolha (Herói: coroa dourada de pontas, a da frente mais alta, com gema azul)
+    if(hero)p.at(x,y+R*1.03,z-R*.02,-.15,0,0,q=>{q.cyl(0,0,0,R*.42,R*.45,R*.22,G,12);
+     for(let i=0;i<5;i++){const a=i/5*Math.PI*2;q.cone(Math.sin(a)*R*.38,R*.26+(i?0:R*.08),Math.cos(a)*R*.38,R*.11,R*(i?.3:.46),G,0,0,0,undefined,5);}
+     q.box(0,R*.04,R*.46,R*.17,R*.17,R*.07,GEM,0,0,Math.PI/4);q.box(0,R*.06,R*.5,R*.07,R*.07,R*.03,'#cfe6ff',0,0,Math.PI/4,{glow:true});});
     else p.at(x,y+R*.82,z+R*.12,-.3,0,0,q=>{q.torus(0,0,0,R*.5,R*.06,palette.gold,Math.PI,Math.PI/2,0,0);
      for(const k of [-1,0,1])q.cone(k*R*.32,R*.15+(k?0:R*.08),R*(.36-Math.abs(k)*.12),R*.09,R*(k?.24:.36),palette.gold,0,0,0,undefined,6);
      q.ball(0,R*.08,R*.5,R*.1,B,1,1,1,{glow:true},8);});
    },
    arm(p,s){
-    if(hero){p.dome(0,.0,0,.13,G,.6,1.05,.9,1.05);p.ball(0,.07,0,.035,'#fff3c0',1,1,1,{glow:true},6);}
-    else p.ball(0,-.02,0,.11,'#fff4fb',1.05,.9,1.05);
-    p.ring(0,-.1,0,.075,.02,C,Math.PI/2,0,0,{outline:false});
+    if(hero){
+     // ombreira dourada angulosa e bracelete dourado com faixa da cor do time
+     p.box(0,.03,0,.17,.08,.15,G,0,0,-s*.28);
+     p.cyl(0,-.2,0,.074,.068,.075,G,10);p.ring(0,-.245,0,.07,.016,C,Math.PI/2,0,0,{outline:false});
+    }else{p.ball(0,-.02,0,.11,'#fff4fb',1.05,.9,1.05);p.ring(0,-.1,0,.075,.02,C,Math.PI/2,0,0,{outline:false});}
+    if(s>0&&hero)p.at(0,-.29,.02,1.15,0,0,q=>{
+     // cetro de bolha do Herói: cabo de madeira com anéis dourados e uma bolha grande na ponta
+     q.capsule(0,.09,0,.028,.24,'#8a5a2b');q.cyl(0,-.02,0,.042,.04,.05,G,10);q.cyl(0,.19,0,.046,.04,.04,G,10);q.cyl(0,.27,0,.03,.058,.06,G,10);
+     q.ball(0,.43,0,.14,B,1,1,1,{glow:true},12);q.ball(-.045,.48,.08,.035,'#ffffff',1,1,1,{glow:true},6);});
     // espada de bolha: cabo dourado, guarda em arco e lâmina de bolhas de vidro
-    if(s>0)p.at(0,-.29,.02,1.15,0,0,q=>{q.capsule(0,.03,0,.03,.1,palette.goldDark);q.torus(0,.13,0,.1,.025,palette.gold,Math.PI,0,0,0);
+    else if(s>0)p.at(0,-.29,.02,1.15,0,0,q=>{q.capsule(0,.03,0,.03,.1,palette.goldDark);q.torus(0,.13,0,.1,.025,palette.gold,Math.PI,0,0,0);
      q.ball(0,-.06,0,.045,B,1,1,1,{glow:true},8);
      q.shape([[-.04,0],[.04,0],[.03,.5],[0,.58],[-.03,.5]],.02,'#d9f7ff',0,.15,0);
      for(let i=0;i<4;i++)q.ball(0,.24+i*.13,.0,.085-i*.012,B,1,1,.7,{glow:true},8);});

@@ -342,7 +342,9 @@ export class Arena3D{
    n.oldX=e.x;n.oldY=e.y;
    // Herói: anel dourado em volta do anel do time e brilhos dourados subindo de vez em quando.
    if(!tower&&e.heroi){const r=(e.r||24)/64;this.feet.add(m.position.x,.045,m.position.z,r*2.15,'#ffd84d');
-    if(time-(n.sparkAt||0)>.45){n.sparkAt=time;const a=Math.random()*TAU;this.spawn({kind:'spark',x:e.x+Math.cos(a)*r*64,y:e.y+Math.sin(a)*r*64,h:.2+Math.random()*.6,vx:0,vz:0,vy:1.1,g:0,c:'#ffd84d',s:.07,life:.7});}}
+    if(time-(n.sparkAt||0)>.45){n.sparkAt=time;const a=Math.random()*TAU;this.spawn({kind:'spark',x:e.x+Math.cos(a)*r*64,y:e.y+Math.sin(a)*r*64,h:.2+Math.random()*.6,vx:0,vz:0,vy:1.1,g:0,c:'#ffd84d',s:.07,life:.7});}
+    // Princesa Herói (design do dono): três bolhas flutuando em volta dela.
+    if(e.card.bolha){const h=m.userData.height||1.6;for(let i=0;i<3;i++){const a=time*1.3+i*TAU/3+(e.id||0);this.bubbles.get(m.position.x+Math.cos(a)*.62,m.position.y+h*(.45+.15*Math.sin(time*2+i*2)),m.position.z+Math.sin(a)*.62/1.25,.09+.03*i,time);}}}
    if(!tower){const r=(e.r||24)/64;if(!e.air)this.feet.add(m.position.x,.05,m.position.z,r*1.6,palette[e.side]);this.blobs?.add(m.position.x,.035,m.position.z,r*(e.air?1.1:1.5),'#1d3812');}
    const show=tower||e.hp<e.maxHp;n.bar.el.hidden=!show;
    if(show){m.getWorldPosition(v3);v3.y+=(m.userData.height||2.5)+.17;v3.project(this.camera);n.bar.el.style.transform=`translate(${(v3.x*.5+.5)*this.w}px,${(-v3.y*.5+.5)*this.h}px) translate(-50%,-100%)`;const value=Math.ceil(Math.max(0,e.hp));if(n.bar.value!==value){n.bar.value=value;n.bar.text.textContent=tower?value:'';n.bar.fill.style.transform=`scaleX(${clamp(e.hp/e.maxHp,0,1)})`;n.bar.fill.style.background=palette[e.side];}n.bar.el.hidden=Math.abs(v3.x)>1||Math.abs(v3.y)>1;}

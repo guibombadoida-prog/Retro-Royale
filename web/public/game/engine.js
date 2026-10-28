@@ -96,14 +96,14 @@ const CARDS = [
     n:4, hp:75, dmg:55, hit:.95, range:.85, speed:1.40, sight:5.5, alvo:'ambos',
     raio:.24, massa:.4, deploy:1.0, ar:true },
   { id:'princesa', nome:'Princesa da Bolha', custo:5, tipo:'tropa', papel:'prende em bolhas', art:'princess', nova:true, raridade:'lendaria',
-    hp:600, dmg:140, hit:1.1, range:1.0, speed:.75, sight:5.5, alvo:'chao',
+    hp:800, dmg:170, hit:1.1, range:1.0, speed:.75, sight:5.5, alvo:'chao',
     raio:.34, massa:1.0, deploy:1.0,
     // Habilidade automática: a cada `recarga` s lança uma bolha a até `alcance` casas. As tropas terrestres
     // inimigas na `area` flutuam por `flutua` s, levam `estouro` quando a bolha estoura e `queda` ao cair.
-    bolha:{ recarga:5.5, primeira:1.5, alcance:5, area:1.8, flutua:2.5, estouro:180, queda:120, conjura:.55 },
+    bolha:{ recarga:4.5, primeira:1.5, alcance:5, area:1.8, flutua:2.5, estouro:180, queda:120, conjura:.55 },
     // Versão Herói (no espaço dourado ou curinga do baralho): habilidade dourada que o jogador ativa
     // tocando no botão, por elixir. Prende na hora tudo o que é inimigo em volta dela, inclusive voadores.
-    heroi:{ id:'chuva', nome:'Chuva de bolhas', custo:3, recarga:14, raio:3.2,
+    heroi:{ id:'chuva', nome:'Chuva de bolhas', custo:3, recarga:10, raio:3.2,
       descricao:'Prende numa bolha, na hora, todas as tropas inimigas em volta dela, até as que voam.' } },
 ];
 const CARD = Object.fromEntries(CARDS.map(c=>[c.id,c]));
