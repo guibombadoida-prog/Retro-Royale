@@ -1,7 +1,7 @@
 
 "use strict";
 let ARENA3D=null;
-const PREF={light:false,fx:!matchMedia("(prefers-reduced-motion: reduce)").matches};
+const PREF={light:false,grafico:'normal',fx:!matchMedia("(prefers-reduced-motion: reduce)").matches};
 /* ══════════════════════════════════════════════════════════════════════
    PONTE DAS COROAS — combate e interface; arena e personagens em 3D
    Setores: 0 constantes · 1 matemática · 2 cartas · 3 VFX · 4 áudio
@@ -2377,6 +2377,21 @@ const $rail = document.getElementById('rail');
 const CAN_FILTER = (()=>{ try { const c=document.createElement('canvas').getContext('2d');
   c.filter='blur(1px)'; return c.filter==='blur(1px)'; } catch(e){ return false; } })();
 
+// Gráfico das configurações: Leve, Normal ou Ultra. PREF.light continua sendo o "modo leve" do resto do código
+// (menos partículas, canvas 1×); o arena3d.js lê PREF.grafico para escolher os degraus de qualidade.
+const GRAFICOS = ['leve','normal','ultra'];
+function setGraphics(mode){
+  if(!GRAFICOS.includes(mode)) return;
+  PREF.grafico = mode; PREF.light = mode==='leve';
+  for(const b of document.querySelectorAll('button[data-grafico]')){ const on=b.dataset.grafico===mode; b.classList.toggle('gold',on); b.setAttribute('aria-pressed',on); }
+  const nota = document.getElementById('graficoNota');
+  if(nota) nota.textContent = {
+    leve:'Sem sombras nem contorno e menos partículas: para celular fraco ou para poupar bateria.',
+    normal:'A qualidade se ajusta sozinha para o jogo não travar.',
+    ultra:'Resolução máxima, sombras mais finas e todas as partículas. Pode esquentar e pesar em celular fraco.'
+  }[mode];
+  resize();
+}
 function resize(){
   const st = document.getElementById('stage');
   const w = st.clientWidth, h = st.clientHeight;
@@ -3453,6 +3468,7 @@ addEventListener('keydown', ev=>{
 /* — construtor de baralho — */
 let deckSel = ['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'];
 let DECK_PICK = null;      // espaço do baralho escolhido para trocar de lugar ou receber uma carta da coleção
+let USE_PICK = null;       // carta da coleção esperando o jogador escolher qual carta do baralho sai ("Usar" com o baralho cheio)
 const LS = 'ponte-coroas-deck';
 try { const saved = JSON.parse(localStorage.getItem(LS)||'null');
       if(Array.isArray(saved) && saved.length===8 && new Set(saved).size===8 && saved.every(id=>CARD[id]&&!CARD[id].oculta)) deckSel = saved; } catch(e){}
@@ -3478,24 +3494,27 @@ function buildPool(){
       if(DECK_PICK!==null && deckSel[DECK_PICK] && !deckSel.includes(c.id)){
         deckSel = deckSel.map((id,i)=>i===DECK_PICK?c.id:id); DECK_PICK = null; syncDeck(); return;
       }
-      // Toque marca ou desmarca. Com 8 marcadas, é preciso tirar uma antes de pôr outra.
-      DECK_PICK = null;
-      if(deckSel.includes(c.id)) deckSel = deckSel.filter(id=>id!==c.id);
-      else if(deckSel.length < 8) deckSel = [...deckSel, c.id];
-      else {
-        b.animate([{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'none'}],140);
-        $('startHint').textContent = 'Baralho cheio: toque numa carta marcada para tirar';
-        return;
-      }
-      syncDeck();
+      // Como na referência do dono: o toque abre "Info" e "Usar" (fora do baralho) ou "Tirar" (no baralho).
+      // Tocar de novo na carta que esperava um lugar no baralho cancela a troca.
+      const waiting = USE_PICK===c.id;
+      if(DECK_PICK!==null || USE_PICK!==null){ DECK_PICK = null; USE_PICK = null; syncDeck(); }
+      if(waiting) return;
+      const inDeck = deckSel.includes(c.id);
+      cardMenu(b, c.id, '', inDeck
+        ? [['Tirar','tirar',()=>{ deckSel = deckSel.filter(id=>id!==c.id); syncDeck(); }]]
+        : [['Usar','usar',()=>{
+            if(deckSel.length < 8){ deckSel = [...deckSel, c.id]; syncDeck(); return; }
+            // Baralho cheio: o jogador escolhe no baralho qual carta sai.
+            USE_PICK = c.id; syncDeck(); $('deckPreview').scrollIntoView({block:'center',behavior:'smooth'});
+          }]]);
     });
   }
   requestAnimationFrame(()=>{
-    for(const el of pool.children) paintCard(el.querySelector('canvas'), CARD[el.dataset.id], 'ally');
+    for(const el of pool.querySelectorAll('.pcard')) paintCard(el.querySelector('canvas'), CARD[el.dataset.id], 'ally');
   });
 }
 function syncDeck(){
-  for(const el of $('pool').children) {const selected=deckSel.includes(el.dataset.id);el.classList.toggle('sel', selected);el.setAttribute('aria-pressed',selected);}
+  for(const el of $('pool').querySelectorAll('.pcard')) {const selected=deckSel.includes(el.dataset.id);el.classList.toggle('sel', selected);el.classList.toggle('using', USE_PICK===el.dataset.id);el.setAttribute('aria-pressed',selected);}
   const n = deckSel.length,eligible=deckSel.every(id=>PROGRESS.allowed(id))&&deckSel.filter(id=>CARD[id]?.campeao).length<=1;
   const cnt = $('deckCnt'); cnt.textContent = `${n} / 8`; cnt.classList.toggle('ok', n===8);
   const avg = n ? (deckSel.reduce((s,id)=>s+CARD[id].custo,0)/n) : 0;
@@ -3577,7 +3596,7 @@ function frame(now){
     drawBudget=Math.max(0,drawBudget-1/60);
     const gap=drawnAt?Math.min(100,now-drawnAt):16.7;drawnAt=now;
     avgFrame=avgFrame*.92+gap*.08;
-    QUALITY=PREF.light ? .3 : avgFrame>34 ? .3 : avgFrame>23 ? .6 : 1;
+    QUALITY=PREF.light ? .3 : PREF.grafico==='ultra' ? (avgFrame>45 ? .6 : 1) : avgFrame>34 ? .3 : avgFrame>23 ? .6 : 1;
     render(now/1000);
   }
   uiT+=dt;if(uiT>.05){uiT=0;if(G.state!=='menu')syncHUD();}
@@ -3590,7 +3609,7 @@ addEventListener('resize', ()=>{
   rTO = setTimeout(()=>{
     if(slots.length) refreshHand(true);
     if($('menu').classList.contains('on'))
-      for(const el of $('pool').children) paintCard(el.querySelector('canvas'), CARD[el.dataset.id], 'ally');
+      for(const el of $('pool').querySelectorAll('.pcard')) paintCard(el.querySelector('canvas'), CARD[el.dataset.id], 'ally');
   }, 180);
 });
 document.fonts && document.fonts.ready.then(()=>{ if($('menu').classList.contains('on')) buildPool(); });

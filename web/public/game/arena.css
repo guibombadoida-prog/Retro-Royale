@@ -138,3 +138,28 @@ html[data-online=nao] :is(#onlineBtn,.siteNote.comOnline),html[data-online=sim] 
 .ciTabs button[aria-selected=true]{background:linear-gradient(#a99cff,#6b5ad6);border-color:#3b2c8c}
 .settingsLabel{margin:14px 0 8px;font-size:14px}
 .abilityPos{grid-template-columns:1fr 1fr 1fr}
+/* Menu da carta no baralho e na coleção (Info + ação) */
+#deckPreview,#pool{position:relative}
+.cardMenu{position:absolute;z-index:20;display:flex;flex-direction:column;gap:5px;padding:5px;border-radius:10px;background:#0a2550f2;border:2px solid #04163a;box-shadow:0 6px 14px #000a;animation:menuPop .12s ease-out}
+.cardMenu button{min-height:36px;padding:6px 8px;border-radius:7px;border:2px solid #06204a;font:15px/1 Royale,system-ui,sans-serif;color:#fff;text-shadow:0 2px #0007;box-shadow:inset 0 2px #ffffff55}
+.cardMenu .info{background:linear-gradient(#6fc8ff,#1679d6)}
+.cardMenu .usar{background:linear-gradient(#8de67a,#2fa84a)}
+.cardMenu .tirar{background:linear-gradient(#ff9a8f,#d6343f)}
+.cardMenu .trocar{background:linear-gradient(#ffe36b,#e09d14);color:#fff;text-shadow:0 2px #8b5a0a}
+.cardMenu button:active{transform:translateY(1px)}
+@keyframes menuPop{from{transform:scale(.85);opacity:0}}
+.pcard.using{outline:3px solid #8de67a;outline-offset:1px}
+.deckSlot.alvo{animation:alvo .5s ease-in-out infinite alternate}
+@keyframes alvo{from{transform:rotate(-2deg)}to{transform:rotate(2deg)}}
+.pcard .infoBtn{width:24px;height:24px;margin-top:calc(100% - 27px);font-size:14px}
+/* Palco 3D dos detalhes da carta */
+.ciStage{position:relative;height:190px;margin-top:12px;border-radius:10px;overflow:hidden;background:radial-gradient(ellipse 60% 34% at 50% 84%,var(--r1),transparent 70%),linear-gradient(#3a7cc6,#143f7c);box-shadow:inset 0 0 0 2px var(--r2),inset 0 -20px 30px #0a254d88}
+.ciStage[data-versao=heroi]{background:radial-gradient(ellipse 60% 34% at 50% 84%,#fff1a8,transparent 70%),linear-gradient(#c58d1f,#5a3a07);box-shadow:inset 0 0 0 2px #ffd84d,inset 0 -20px 30px #3a250688}
+.ciStage[hidden]{display:none}
+.ciViewer{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:grab}
+.ciStage small{position:absolute;right:9px;bottom:6px;font-size:10px;color:#fff;opacity:.75;pointer-events:none;text-shadow:0 1px #0008}
+/* Gráfico nas configurações: Leve, Normal e Ultra */
+.graficoPick{grid-template-columns:1fr 1fr 1fr}
+.graficoPick .chip{display:flex;flex-direction:column;align-items:center;gap:3px}
+.graficoPick small{font:10px/1.1 system-ui,sans-serif;opacity:.85}
+.graficoNota{margin-top:8px;font-size:12px;line-height:1.35;color:#e5f3ff;min-height:2.7em}

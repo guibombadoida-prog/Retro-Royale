@@ -115,12 +115,14 @@ class Batch{
 }
 // Qualidade automática: mede o tempo real entre quadros e ajusta resolução, sombra e contorno.
 // Começa um degrau abaixo no celular; cai quando o quadro passa de ~24 ms e nunca volta a um degrau que já pesou.
+// O gráfico das configurações limita os degraus: Leve 0–1, Normal 0–4 e Ultra começa no 5.
 const LEVELS=[
  {pr:.75,shadow:false,outline:false},
  {pr:1,shadow:false,outline:false},
  {pr:1,shadow:true,outline:true},
  {pr:1.25,shadow:true,outline:true},
- {pr:1.5,shadow:true,outline:true}
+ {pr:1.5,shadow:true,outline:true},
+ {pr:2,shadow:true,outline:true,shadowSize:2048}
 ];
 // Gradiente radial (centro forte, borda transparente) para marcas no chão e brilhos.
 let softTexture=null;
@@ -154,7 +156,7 @@ function starGeometry(){const s=new T.Shape();for(let i=0;i<10;i++){const r=i%2?
 
 export class Arena3D{
  constructor({canvas,input,stage,onReady,onError}){
-  this.canvas=canvas;this.input=input;this.stage=stage;this.entities=new Map();this.mode=0;this.yaw=0;this.polar=.30;this.last=0;this.ghostId='';this.ready=false;this.low=false;
+  this.canvas=canvas;this.input=input;this.stage=stage;this.entities=new Map();this.mode=0;this.yaw=0;this.polar=.30;this.last=0;this.ghostId='';this.ready=false;this.grafico='';
   this.fx3=[];this.seenFields=new Set();
   try{
    const context=canvas.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
@@ -547,7 +549,9 @@ export class Arena3D{
  }
  // Aplica o degrau de qualidade atual: resolução, sombra das torres e contorno.
  applyLevel(){
-  const L=LEVELS[this.level],shadow=L.shadow&&!this.software;
+  const L=LEVELS[this.level],shadow=L.shadow&&!this.software,size=L.shadowSize||1024;
+  // Ultra: mapa de sombra mais fino (o antigo é descartado e refeito no próximo quadro).
+  if(this.sun.shadow.mapSize.x!==size){this.sun.shadow.mapSize.set(size,size);this.sun.shadow.map?.dispose();this.sun.shadow.map=null;this.renderer.shadowMap.needsUpdate=true;}
   if(this.renderer.shadowMap.enabled!==shadow){
    this.renderer.shadowMap.enabled=shadow;this.renderer.shadowMap.needsUpdate=true;
    // Os materiais recompilam com (ou sem) a leitura da sombra.
@@ -556,22 +560,29 @@ export class Arena3D{
   materials.outline.visible=L.outline&&!this.software;this.resize();
  }
  // Mede o tempo entre quadros desenhados: cai um degrau depois de 1,5 s abaixo de ~42 quadros por segundo
- // e sobe um depois de 10 s folgado, sem voltar a um degrau que já pesou. O modo leve limita ao degrau 1.
- tune(time,light){
-  if(light!==this.low){this.low=light;this.level=light?Math.min(this.level,1):Math.min(this.ceiling,3);this.settle=2;this.applyLevel();}
+ // e sobe um depois de 10 s folgado, sem voltar a um degrau que já pesou. Gráfico Leve fica nos degraus 0–1;
+ // Normal no 0–4; Ultra começa no 5 (resolução 2× e sombra fina) e só cai se passar de ~34 ms por 3 s.
+ tune(time,mode){
+  if(mode!==this.grafico){
+   const first=!this.grafico;this.grafico=mode;
+   if(mode==='ultra'){if(!this.software){this.ceiling=5;this.level=5;}}
+   else if(mode==='leve')this.level=Math.min(this.level,1);
+   else{this.ceiling=Math.min(this.ceiling,4);this.level=first?Math.min(this.level,4):Math.min(this.ceiling,3);}
+   this.settle=2;this.applyLevel();
+  }
   const gap=time-(this.tuneAt||time);this.tuneAt=time;
   if(this.software||gap<=0||gap>.25)return;
   this.avg=this.avg?this.avg*.9+gap*.1:gap;
   if((this.settle-=gap)>0)return;
-  const top=light?Math.min(1,this.ceiling):this.ceiling;
-  if(this.avg>.024){this.fast=0;if((this.slow+=gap)>1.5&&this.level>0){this.ceiling=this.level-1;this.level--;this.slow=0;this.settle=2;this.applyLevel();}}
+  const top=mode==='leve'?Math.min(1,this.ceiling):mode==='ultra'?this.ceiling:Math.min(4,this.ceiling),ultra=mode==='ultra';
+  if(this.avg>(ultra?.034:.024)){this.fast=0;if((this.slow+=gap)>(ultra?3:1.5)&&this.level>0){this.ceiling=this.level-1;this.level--;this.slow=0;this.settle=2;this.applyLevel();}}
   else if(this.avg<.0185&&this.level<top){this.slow=0;if((this.fast+=gap)>10){this.level++;this.fast=0;this.settle=2;this.applyLevel();}}
   else{this.slow=Math.max(0,this.slow-gap);this.fast=0;}
  }
  render({G,FX,UI,CARD,PREF,QUALITY},time){if(!this.ready)return;
   if(this.software&&this.last&&time-this.last<1/30)return;
   const dt=clamp(time-(this.last||time),0,.1);this.last=time;
-  this.tune(time,!!PREF.light);
+  this.tune(time,PREF.grafico||(PREF.light?'leve':'normal'));
   if(this.cameraBase){this.camera.position.copy(this.cameraBase);if(PREF.fx&&FX.shake>.5){this.camera.position.x+=Math.sin(time*49)*FX.shake*.004;this.camera.position.y+=Math.cos(time*43)*FX.shake*.003;}this.camera.lookAt(this.target);this.camera.updateMatrixWorld();}
   this.waterMat.uniforms.time.value=time;
   for(const p of this.poolList)p.reset();
@@ -597,6 +608,7 @@ window.createArena3D=options=>new Arena3D(options);
    Um renderizador pequeno e separado fotografa cada tropa uma vez numa pose de ação.
    Sem WebGL devolve null e o engine continua com a arte 2D. */
 const portraits=new Map();let portraitKit=null;
+const RIG_PARTS=['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop'];
 function cardPortrait(art,side='ally',hero=false){
  const key=art+':'+side+(hero?':heroi':'');if(portraits.has(key))return portraits.get(key);
  let out=null;
@@ -609,7 +621,7 @@ function cardPortrait(art,side='ally',hero=false){
    portraitKit={renderer,scene,camera:new T.PerspectiveCamera(26,220/240,.1,50)};
   }
   const {renderer,scene,camera}=portraitKit,model=unitModel(art,side,hero);scene.add(model);
-  const rig={};for(const name of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop'])rig[name]=model.getObjectByName(name);
+  const rig={};for(const name of RIG_PARTS)rig[name]=model.getObjectByName(name);
   // Pose de ação: meio da preparação do ataque, virado 3/4 para a câmera.
   const n={model,rig,oldX:0,oldY:0,angle:.45},e={id:3,x:0,y:0,heading:Math.PI/2-.45,ph:1.2,moving:false,card:{art,deploy:1},attackWindup:.07,attackPrep:.16,atk:0,hurt:0,deploy:0,air:art==='bat'};
   for(let i=0;i<40;i++){model.position.set(0,art==='bat'?.4:0,0);animateRig(n,e,.7,1/30);}
@@ -623,3 +635,66 @@ function cardPortrait(art,side='ally',hero=false){
  portraits.set(key,out);return out;
 }
 window.cardPortrait3D=cardPortrait;
+
+/* ── Visualizador 3D dos detalhes da carta ───────────────────────────────────────────────
+   A tropa em movimento (parada, andando e golpeando; a Princesa também conjura), virando
+   devagar de um lado para o outro; arrastar para o lado gira. Um renderizador só, reaproveitado
+   entre aberturas; o laço para sozinho quando a janela fecha. Sem WebGL devolve false. */
+let viewerKit=null;
+function cardViewer(host,card,side='ally',hero=false,label=''){
+ let model=null;
+ try{
+  if(!viewerKit){
+   const renderer=new T.WebGLRenderer({alpha:true,antialias:true});
+   renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.NeutralToneMapping;renderer.toneMappingExposure=1.1;renderer.setClearColor(0x000000,0);
+   const scene=new T.Scene();scene.add(new T.HemisphereLight(0xffffff,0x7aa05a,1.7));const sun=new T.DirectionalLight(0xfff0d8,2.4);sun.position.set(2,4,5);scene.add(sun);
+   const flat=(geometry,c,opacity,y)=>{const m=new T.Mesh(geometry,new T.MeshBasicMaterial({color:c,transparent:true,opacity,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.y=y;scene.add(m);return m;};
+   const canvas=renderer.domElement;canvas.className='ciViewer';canvas.setAttribute('role','img');
+   viewerKit={renderer,scene,camera:new T.PerspectiveCamera(26,1,.1,50),shadow:flat(new T.CircleGeometry(.5,32),0x06142b,.3,.002),ring:flat(new T.RingGeometry(.55,.63,48),0xffd84d,.95,.004),stop:null};
+  }
+  const kit=viewerKit,{renderer,scene,camera}=kit,canvas=renderer.domElement;kit.stop?.();
+  const art=card.art,air=art==='bat',lift=air?.45:0;model=unitModel(art,side,hero);scene.add(model);
+  const rig={};for(const name of RIG_PARTS)rig[name]=model.getObjectByName(name);
+  const n={model,rig,oldX:0,oldY:0,angle:.45},e={id:5,x:0,y:0,heading:Math.PI/2-.45,ph:0,moving:false,card:{art,deploy:1,bolha:card.bolha},attackWindup:0,attackPrep:.3,atk:0,cast:0,hurt:0,deploy:0,air};
+  // Enquadra a tropa parada uma vez; a câmera fica fixa enquanto ela se mexe.
+  model.position.set(0,lift,0);animateRig(n,e,0,1/30,true);model.updateMatrixWorld(true);
+  const box=new T.Box3().setFromObject(model),size=box.getSize(new T.Vector3()),center=box.getCenter(new T.Vector3());
+  const r=Math.max(size.x,size.z)*.6;kit.shadow.scale.setScalar(r/.5);kit.ring.scale.setScalar(r/.55);kit.ring.visible=hero;
+  // Voadores batem as asas para fora da caixa medida parada: mais folga em volta deles.
+  const fit=()=>{const pad=air?1.7:1.25,h=size.y+lift,dist=Math.max(h*pad,size.x*pad*.9/Math.max(camera.aspect,.5))/(2*Math.tan(T.MathUtils.degToRad(13)));
+   camera.position.set(0,h*.62,center.z+dist);camera.lookAt(0,h*.46,center.z);};
+  canvas.setAttribute('aria-label',label);host.prepend(canvas);kit.w=kit.h=0;
+  let yaw=.45,turned=false,drag=null,last=performance.now(),t0=last,k=0,raf=0;
+  const down=ev=>{drag={x:ev.clientX,yaw};turned=true;canvas.setPointerCapture?.(ev.pointerId);};
+  const move=ev=>{if(drag)yaw=drag.yaw+(ev.clientX-drag.x)*.013;};
+  const up=()=>{drag=null;};
+  const events=[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up]];
+  for(const [name,fn] of events)canvas.addEventListener(name,fn);
+  const stop=()=>{cancelAnimationFrame(raf);for(const [name,fn] of events)canvas.removeEventListener(name,fn);scene.remove(model);releaseModel(model);kit.stop=null;};
+  kit.stop=stop;
+  const frame=now=>{
+   if(!canvas.isConnected||!canvas.closest('dialog[open]')){stop();return;}
+   raf=requestAnimationFrame(frame);
+   const dt=clamp((now-last)/1000,0,.05),time=(now-t0)/1000,prev=k;last=now;k=time%4.4;
+   const at=x=>prev<x&&k>=x;
+   // Ciclo de 4,4 s: parada, andando, um golpe e (Princesa) a conjuração da bolha.
+   if(!turned)yaw=.45+Math.sin(time*.5)*.55;
+   e.heading=Math.PI/2-yaw;e.moving=k>.9&&k<2.1;e.ph=time*8;
+   if(at(2.3))e.attackWindup=e.attackPrep;
+   if(e.attackWindup>0){e.attackWindup=Math.max(0,e.attackWindup-dt);if(!e.attackWindup)e.atk=1;}
+   else e.atk=Math.max(0,e.atk-dt*3.6);
+   if(card.bolha&&at(3.3))e.cast=card.bolha.conjura;
+   e.cast=Math.max(0,e.cast-dt);
+   model.position.set(0,lift,0);animateRig(n,e,time,dt,true);
+   const w=canvas.clientWidth,h=canvas.clientHeight;
+   if(w&&h&&(w!==kit.w||h!==kit.h)){kit.w=w;kit.h=h;renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();fit();}
+   if(kit.w)renderer.render(scene,camera);
+  };
+  raf=requestAnimationFrame(frame);
+  return true;
+ }catch(err){
+  if(model){viewerKit?.scene.remove(model);releaseModel(model);}
+  console.warn('Visualizador 3D',err);return false;
+ }
+}
+window.cardViewer3D=cardViewer;
