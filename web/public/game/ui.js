@@ -103,7 +103,7 @@ const STAT_ICON={
  group:'<circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M3 19c1-4 9-4 10 0m-2 0c1-4 9-4 10 0"/>',
  bubble:'<circle cx="11" cy="13" r="7" fill="#bff1ff"/><circle cx="18" cy="6" r="3" fill="#dff8ff"/><path d="M7 11a4 4 0 0 1 3-3" stroke="#fff"/>',
  boom:'<path d="M12 2l2 6 6-2-3 5 5 3-6 1 1 6-5-4-5 4 1-6-6-1 5-3-3-5 6 2z" fill="#ffb347"/>',area:'<circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2" fill="#fff"/>',
- stun:'<path d="M13 2 5 13h6l-1 9 8-12h-6z" fill="#cff3ff"/>',push:'<path d="M3 12h13m-4-5 5 5-5 5M20 5v14"/>'
+ stun:'<path d="M13 2 5 13h6l-1 9 8-12h-6z" fill="#cff3ff"/>',snow:'<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 2 3-2M9 20l3-2 3 2" stroke="#bff1ff"/>',push:'<path d="M3 12h13m-4-5 5 5-5 5M20 5v14"/>'
 };
 const statIcon=k=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${STAT_ICON[k]}</svg>`;
 function cardStats(c){
@@ -114,6 +114,7 @@ function cardStats(c){
  S('boot','Velocidade',c.speed>=1.25?'Muito rápida':c.speed>=1?'Rápida':c.speed>=.7?'Média':'Lenta');
  S('bow','Alcance',c.range<=1.2?'Corpo a corpo':fmtNum(c.range));
  if((c.n||1)>1)S('group','Quantidade','×'+c.n);
+ if(c.gelo)S('snow','Lentidão',Math.round(c.gelo.lento*100)+'% · '+fmtNum(c.gelo.dura)+'s');
  if(c.bolha){S('bubble','Bolha a cada',fmtNum(c.bolha.recarga)+'s');S('bubble','Estouro + queda',c.bolha.estouro+' + '+c.bolha.queda);}
  return out;
 }

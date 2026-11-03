@@ -280,6 +280,44 @@ const builders={
    prop(p){bomb(p,0,0,0,.2);}
   });
  },
+ // Mago de Gelo: túnica de gelo em sino com barra de pelo, chapéu pontudo da cor do time com floco de neve,
+ // barba branca comprida, cajado com cristal na mão esquerda e uma bola de gelo na direita (some no arremesso).
+ icewizard(t){
+  const C=team(t),D=team(t,true),R1='#bfe6ff',R2='#8cc8f0',FUR='#f6fbff',ICE='#9fe6ff';
+  return humanoid({style:'throw',shirt:R1,sleeve:R2,pants:R2,boots:'#5b6f9a',bodyR:.21,bodyScale:[1,1.15,.85],legR:.065,armR:.06,handR:.075,scale:.98,
+   body(p,{bodyY,bodyR}){
+    // túnica em sino, barra de pelo, cinto do time com fivela de cristal e gola de pelo
+    p.lathe([[.4,bodyY-.64],[.38,bodyY-.6],[.29,bodyY-.36],[bodyR*1.05,bodyY-.14],[bodyR*.85,bodyY-.02]],R1,0,0,0,16);
+    p.ring(0,bodyY-.61,0,.39,.045,FUR,Math.PI/2);
+    p.box(0,bodyY-.38,.3,.07,.42,.03,R2,-.36,0,0,{outline:false});
+    p.ring(0,bodyY-.06,0,bodyR*.95,.035,C,Math.PI/2);p.box(0,bodyY-.06,bodyR*.92,.08,.08,.04,ICE,0,0,Math.PI/4,{glow:true});
+    p.ring(0,bodyY+.17,0,bodyR*.78,.06,FUR,Math.PI/2);
+   },
+   head(p,{hc,R}){
+    const [x,y,z]=hc;
+    // barba comprida e bigode, sobrancelhas grossas, nariz
+    p.ball(x,y-R*.62,z+R*.42,R*.62,FUR,1,1.15,.7);p.cone(x,y-R*1.25,z+R*.46,R*.32,R*.55,FUR,Math.PI,0,0,undefined,8);
+    for(const s of [-1,1])p.capsule(x+s*R*.24,y-R*.36,z+R*.9,R*.09,R*.26,FUR,0,0,s*1.25);
+    eyes(p,x,y-R*.02,z,R,{size:.13,spread:.36,lift:.02});
+    for(const s of [-1,1])p.box(x+s*R*.36,y+R*.3,z+R*.86,R*.34,R*.12,R*.1,FUR,0,0,s*-.2);
+    p.ball(x,y-R*.2,z+R*.98,R*.15,'#f2a285',1,1,1,{outline:false},10);
+    // chapéu pontudo do time com aba de pelo, ponta dobrada e floco de neve
+    p.cyl(x,y+R*.62,z,R*1.02,R*1.05,R*.18,FUR,16);
+    p.at(x,y+R*.7,z,-.12,0,0,q=>{q.cone(0,R*.62,0,R*.86,R*1.25,C,0,0,0,undefined,14);
+     q.at(0,R*1.22,0,0,0,.65,w=>{w.cone(0,R*.22,0,R*.24,R*.5,D,0,0,0,undefined,8);w.ball(0,R*.5,0,R*.1,ICE,1,1,1,{glow:true},8);});
+     q.at(0,R*.5,R*.62,-.42,0,0,w=>{for(let i=0;i<3;i++)w.box(0,0,0,R*.36,R*.07,R*.04,'#e9fbff',0,0,i*Math.PI/3,{glow:true,outline:false});});});
+   },
+   arm(p,s){
+    // manga larga com punho de pelo
+    p.cone(0,-.2,0,.1,.18,R2,Math.PI,0,0,undefined,10);p.ring(0,-.25,0,.085,.02,FUR,Math.PI/2,0,0,{outline:false});
+    // cajado de madeira com cristal de gelo na mão esquerda
+    if(s<0)p.at(0,-.3,.04,.2,0,0,q=>{q.capsule(0,.18,0,.028,.86,'#8a5a2b');q.ring(0,.6,0,.04,.018,palette.gold,Math.PI/2);
+     q.at(0,.78,0,0,0,0,w=>{w.cone(0,.08,0,.08,.2,ICE,0,0,0,{glow:true},6);w.cone(0,-.06,0,.08,.1,ICE,Math.PI,0,0,{glow:true},6);});});
+   },
+   prop(p){p.ball(0,-.02,.04,.1,'#dff8ff',1,1,1,{glow:true},10);p.ball(-.03,.02,.1,.03,'#ffffff',1,1,1,{glow:true},6);},
+   extraHeight:.32
+  });
+ },
  // Princesa da Bolha: vestido em sino da cor do time, tiara, cabelo longo e espada de bolhas que brilha.
  // `hero`: versão Herói (design do dono): coroa dourada com gema azul, ombreiras, cinto, braceletes e losango
  // dourados, vestido em dois tons com uma bolha e um cetro com uma bolha grande na ponta; mantém a cor do time.
@@ -414,6 +452,11 @@ export function projectileModel(kind,side){
  if(!projCache.has(key)){
   const C=team(side),p=new Parts();
   if(kind==='bomb'){bomb(p,0,0,0,.26);}
+  else if(kind==='ice'){
+   // Bola de gelo do Mago: núcleo branco brilhando e cristais em volta.
+   p.ball(0,0,0,.17,'#bff1ff',1,1,1,{glow:true},12);p.ball(0,0,0,.1,'#ffffff',1,1,1,{glow:true,outline:false},8);
+   for(let i=0;i<4;i++){const a=i*Math.PI/2;p.at(0,0,0,0,a,0,q=>q.cone(0,0,.2,.06,.16,'#e6fbff',Math.PI/2,0,0,{glow:true,outline:false},5));}
+   p.cone(0,.2,0,.06,.16,'#e6fbff',0,0,0,{glow:true,outline:false},5);p.cone(0,-.2,0,.06,.16,'#e6fbff',Math.PI,0,0,{glow:true,outline:false},5);}
   else if(kind==='ball'){p.ball(0,0,0,.2,'#3d4558');}
   else{const big=kind==='bolt',L=big?.95:.75;
    p.capsule(0,0,0,big?.035:.025,L,big?palette.woodDark:palette.wood,Math.PI/2);

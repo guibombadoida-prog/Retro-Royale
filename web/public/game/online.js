@@ -35,14 +35,14 @@ const TEAMS={
 };
 // O pacote do online leva só o que o convidado usa para desenhar e jogar (antes ia o objeto inteiro).
 const NET_KEYS={
- unit:['kind','id','card','side','playerId','x','y','z','hp','maxHp','r','air','dead','deploy','stun','hurt','atk','ph','moving','heading','attackWindup','attackPrep','abilityCD','bolha','caindo','cast','heroi'],
- tower:['kind','side','lane','king','x','y','z','hp','maxHp','r','alive','active','dead','aim','recoil','hurt'],
+ unit:['kind','id','card','side','playerId','x','y','z','hp','maxHp','r','air','dead','deploy','stun','hurt','atk','ph','moving','heading','attackWindup','attackPrep','abilityCD','bolha','caindo','cast','heroi','lento'],
+ tower:['kind','side','lane','king','x','y','z','hp','maxHp','r','alive','active','dead','aim','recoil','hurt','lento'],
  proj:['kind','x','y','z','sx','sy','tx','ty','side','col','r','arc','t','dur','lift0','lift1','ang']
 };
 // Valor igual ao padrão não viaja; o convidado completa com NET_DEFAULTS ao receber.
 const NET_DEFAULTS={
- unit:{kind:'unit',z:0,air:false,dead:false,deploy:0,stun:0,hurt:0,atk:0,moving:false,attackWindup:0,bolha:0,caindo:false,cast:0,heroi:false},
- tower:{kind:'tower',z:0,dead:false,recoil:0,hurt:0},
+ unit:{kind:'unit',z:0,air:false,dead:false,deploy:0,stun:0,hurt:0,atk:0,moving:false,attackWindup:0,bolha:0,caindo:false,cast:0,heroi:false,lento:0},
+ tower:{kind:'tower',z:0,dead:false,recoil:0,hurt:0,lento:0},
  proj:{z:0}
 };
 // Posição com 1 casa decimal (1/640 de casa do campo), o resto com 3.
@@ -57,11 +57,11 @@ const netFill=(type,o)=>({...NET_DEFAULTS[type],abilityCD:{},...o});
 // Efeitos: as partículas não viajam mais. O anfitrião registra as chamadas de efeito (faíscas, explosão,
 // número de dano...) e o convidado repete as mesmas chamadas, com o limite de partículas do próprio aparelho.
 // Os contínuos (poeira do passo, rastros) o convidado gera sozinho no NET.frame a partir do estado.
-const NET_FX=['ring','bolt','dmgText','decal','sparks','smoke','embers','shards','flingShards','hitSpark','explode','deployBurst','shakeIt','flashIt','bubbleCast','bubblePop','bubbleLand','bubbleRain','towerHit'];
+const NET_FX=['ring','bolt','dmgText','decal','sparks','smoke','embers','shards','flingShards','hitSpark','explode','deployBurst','shakeIt','flashIt','bubbleCast','bubblePop','bubbleLand','bubbleRain','towerHit','frostBurst'];
 const fxOriginal={};let fxDepth=0,sfxDepth=0;
 // Sons da partida (tropas, torres, feitiços) vão do mesmo jeito; os só do próprio jogador (botões,
 // elixir cheio, vitória, passos das suas tropas) ficam fora.
-const NET_SFX=['deploy','sword','punch','arrow','bow','cannon','zap','fire','boom','magic','wind','die','tower','crown','pop'];
+const NET_SFX=['deploy','sword','punch','arrow','bow','cannon','zap','fire','boom','magic','wind','die','tower','crown','pop','ice'];
 const NET_UNIT_EVENTS=['deploy','swing','attack','hit','impact','die','cast'];
 for(const name of NET_FX){
  const f=globalThis[name];if(typeof f!=='function')continue;fxOriginal[name]=f;
@@ -328,6 +328,7 @@ const NET={
     if(name==='sparks'&&a[5]&&typeof a[5]==='object'&&typeof a[5].a==='number')a[5]={...a[5],a:A(a[5].a)};
     if(name==='hitSpark'||name==='flingShards')a[name==='hitSpark'?3:2]=A(a[name==='hitSpark'?3:2]);
     if(name.startsWith('bubble'))a[2]=clamp(+a[2]||0,0,name==='bubbleCast'||name==='bubbleRain'?320:160);
+    if(name==='frostBurst')a[2]=clamp(+a[2]||0,0,160);
    }
    try{f(...a);}catch{}
   }
