@@ -38,15 +38,15 @@ function syncChampionButtons(){
 const originalSyncHUD=syncHUD;
 syncHUD=function(){originalSyncHUD();syncChampionButtons();$('allyScore').textContent=G.crowns.ally;$('foeScore').textContent=G.crowns.foe;};
 // Baralho como na referência do dono: 8 espaços em 4×2; o 1º é de Evolução (roxo), o 2º de Herói (dourado)
-// e o 3º Curinga (os dois). Toque numa carta e depois em outro espaço para trocar de lugar; com um espaço
-// escolhido, tocar numa carta da coleção põe ela ali (buildPool no engine.js).
+// e o 3º Curinga (os dois). Tocar numa carta abre o menu dela ("Info" e "Trocar"); depois de "Trocar", tocar
+// em outro espaço troca de lugar e tocar numa carta da coleção põe ela ali (buildPool no engine.js).
 const SLOT_KIND=i=>SLOT_EVO.includes(i)?(SLOT_HEROI.includes(i)?'curinga':'evo'):SLOT_HEROI.includes(i)?'heroi':'';
 const SLOT_NAME={evo:'Evolução',heroi:'Herói',curinga:'Curinga'};
 function showDeckPreview(){
  const el=$('deckPreview');el.replaceChildren();
  for(let i=0;i<8;i++){
   const id=deckSel[i],c=CARD[id],kind=SLOT_KIND(i),slot=document.createElement('button');
-  slot.type='button';slot.className='deckSlot'+(DECK_PICK===i?' pick':'');if(kind)slot.dataset.especial=kind;
+  slot.type='button';slot.className='deckSlot'+(DECK_PICK===i?' pick':'')+(USE_PICK&&c?' alvo':'');if(kind)slot.dataset.especial=kind;
   const where=(i+1)+'º espaço'+(kind?' ('+SLOT_NAME[kind]+')':'');
   if(c){
    const versao=ehHeroi(id,deckSel)?'heroi':'';
@@ -60,7 +60,9 @@ function showDeckPreview(){
   slot.setAttribute('aria-pressed',DECK_PICK===i);
   slot.onclick=()=>{
    AU.init();AU.sfx('ui');
-   if(DECK_PICK===null){if(c)DECK_PICK=i;}
+   // "Usar" com o baralho cheio: a carta tocada aqui sai e a da coleção entra no lugar dela.
+   if(USE_PICK){if(c){deckSel=deckSel.map(x=>x===id?USE_PICK:x);USE_PICK=null;syncDeck();}return;}
+   if(DECK_PICK===null){if(c)cardMenu(slot,id,ehHeroi(id,deckSel)?'heroi':'',[['Trocar','trocar',()=>{DECK_PICK=i;showDeckPreview();}]]);return;}
    else if(DECK_PICK===i)DECK_PICK=null;
    else{
     const a=deckSel.slice(),from=DECK_PICK;DECK_PICK=null;
@@ -72,8 +74,26 @@ function showDeckPreview(){
   el.append(slot);
  }
  const tip=$('deckTip'),semHeroi=deckSel.includes('princesa')&&!ehHeroi('princesa',deckSel);
- if(tip)tip.textContent=DECK_PICK!==null?'Toque em outro espaço para trocar, ou numa carta da coleção para pôr no lugar.':semHeroi?'Ponha a Princesa no espaço dourado para jogar com o Herói!':'Toque em duas cartas para trocar de lugar.';
+ if(tip)tip.textContent=USE_PICK?`Toque na carta que vai sair para pôr ${CARD[USE_PICK].nome}.`:DECK_PICK!==null?'Toque em outro espaço para trocar, ou numa carta da coleção para pôr no lugar.':semHeroi?'Ponha a Princesa no espaço dourado para jogar com o Herói!':'Toque numa carta para ver as informações ou trocar.';
 }
+// Menu da carta (referência do dono): "Info" e as ações dela, em cima da carta tocada no baralho ou na coleção.
+let CARD_MENU=null;
+function closeCardMenu(){CARD_MENU?.remove();CARD_MENU=null;}
+function cardMenu(anchor,id,versao,actions){
+ closeCardMenu();
+ const box=anchor.parentElement,m=document.createElement('div');m.className='cardMenu';m.setAttribute('role','menu');m.setAttribute('aria-label',CARD[id].nome);
+ for(const [label,kind,run] of [['Info','info',()=>openCardInfo(id,versao)],...actions]){
+  const b=document.createElement('button');b.type='button';b.className=kind;b.textContent=label;b.setAttribute('role','menuitem');
+  b.onclick=()=>{AU.sfx('ui');closeCardMenu();run();};m.append(b);
+ }
+ box.append(m);
+ const w=Math.max(anchor.offsetWidth+10,96);
+ m.style.width=w+'px';m.style.left=clamp(anchor.offsetLeft+anchor.offsetWidth/2-w/2,0,box.clientWidth-w)+'px';m.style.top=(anchor.offsetTop+anchor.offsetHeight*.34)+'px';
+ CARD_MENU=m;m.querySelector('button').focus({preventScroll:true});
+}
+document.addEventListener('pointerdown',e=>{if(CARD_MENU&&!CARD_MENU.contains(e.target))closeCardMenu();},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCardMenu();});
+addEventListener('resize',closeCardMenu);
 // Detalhes da carta (referência do dono): raridade, tipo, atributos e, se houver, a aba da versão Herói.
 const fmtNum=v=>String(v).replace('.',',');
 const STAT_ICON={
@@ -106,11 +126,15 @@ function openCardInfo(id,versao=''){
  $('ciContent').innerHTML=`<div class="ciHead"><span class="deckCard ciCard" data-rar="${rar}" data-versao="${versao}"><canvas></canvas><b class="dropCost">${c.custo}</b>${cardMarks(c,versao)}</span>
   <div class="ciTitle"><h2 id="ciName">${c.nome}</h2><p class="ciSub" data-rar="${rar}" data-versao="${versao}">${h?'Herói':RARIDADES[rar]}</p>
   <div class="ciPills"><span><small>Raridade</small><b>${RARIDADES[rar]}</b></span><span><small>Tipo</small><b>${{tropa:'Tropa',feitico:'Feitiço',construcao:'Construção'}[c.tipo]||c.tipo}</b></span></div></div></div>
+  <div class="ciStage" data-rar="${rar}" data-versao="${versao}" hidden><small>Arraste para girar</small></div>
   <p class="ciRole">${c.papel}</p>${h?ability:`<div class="ciGrid">${stats}</div>`}
   ${c.heroi?`<div class="ciTabs" role="tablist"><button type="button" role="tab" data-v="" aria-selected="${!h}">♛ Normal</button><button type="button" role="tab" data-v="heroi" aria-selected="${!!h}">◆ Herói</button></div>`:''}`;
  paintCard(d.querySelector('.ciCard canvas'),c,'ally',versao);
  for(const b of d.querySelectorAll('.ciTabs button'))b.onclick=()=>{AU.sfx('ui');openCardInfo(id,b.dataset.v);};
  if(!d.open)d.showModal();
+ // Modelo 3D animado da tropa (feitiços ficam só com a carta). Sem WebGL o palco não aparece.
+ const stage=d.querySelector('.ciStage');
+ stage.hidden=!(c.tipo!=='feitico'&&window.cardViewer3D?.(stage,c,'ally',!!h,`${c.nome}${h?' Herói':''} em 3D. Arraste para girar.`));
 }
 
 function togglePause(){
@@ -143,7 +167,7 @@ function setupArena(){
  $('soundBtn').onclick=()=>{AU.init();AU.on=!AU.on;if(AU.ctx?.state==='suspended')AU.ctx.resume();$('soundBtn').setAttribute('aria-pressed',AU.on);$('soundBtn').textContent=AU.on?'♪ Som':'♪ Mudo';PROGRESS.changed();};
  $('fxBtn').setAttribute('aria-pressed',PREF.fx);
  $('fxBtn').onclick=()=>{PREF.fx=!PREF.fx;FX.shake=0;FX.flash=0;FX.reduced=!PREF.fx;$('fxBtn').setAttribute('aria-pressed',PREF.fx);PROGRESS.changed();};
- $('lightBtn').onclick=()=>{PREF.light=!PREF.light;$('lightBtn').setAttribute('aria-pressed',PREF.light);resize();PROGRESS.changed();};
+ for(const b of document.querySelectorAll('button[data-grafico]'))b.onclick=()=>{setGraphics(b.dataset.grafico);PROGRESS.changed();};setGraphics(PREF.grafico);
  $('pauseBtn').onclick=togglePause;$('resumeBtn').onclick=togglePause;
  $('settingsBtn').onclick=()=>$('settingsDialog').showModal();$('closeSettings').onclick=()=>$('settingsDialog').close();
  const choosePosition=position=>{document.body.dataset.abilityPosition=position;for(const b of document.querySelectorAll('[data-ability-position]'))if(b.tagName==='BUTTON'){b.classList.toggle('gold',b.dataset.abilityPosition===position);b.setAttribute('aria-pressed',b.dataset.abilityPosition===position);}CHAMP_UI.key='';if(PROGRESS.loaded)PROGRESS.changed();try{localStorage.setItem('retro-ability-position',position);}catch(e){}syncChampionButtons();};
@@ -165,7 +189,7 @@ function setupArena(){
   const url=new URL('/',location.origin);url.searchParams.set('sala',NET.room.code);
   try{await navigator.clipboard.writeText(url.href);$('roomStatus').textContent='Convite copiado. Compartilhe com os jogadores.';}catch(e){$('roomStatus').textContent='Compartilhe o código '+NET.room.code;}
  };
- $('deckDetails').addEventListener('toggle',()=>{if($('deckDetails').open)for(const el of $('pool').children)paintCard(el.querySelector('canvas'),CARD[el.dataset.id]);});
+ $('deckDetails').addEventListener('toggle',()=>{if($('deckDetails').open)for(const el of $('pool').querySelectorAll('.pcard'))paintCard(el.querySelector('canvas'),CARD[el.dataset.id]);});
  // The opening screen shows the actual arena with a few of the deck's units.
  startMatch(deckSel,diffSel);G.state='menu';$('toast').classList.remove('show');
  for(const [id,sd,x,y] of [['gigante','ally',6,18.5],['arqueiras','ally',10,20],['cavaleiro','foe',4,9],['morcegos','foe',13,8.5]]){

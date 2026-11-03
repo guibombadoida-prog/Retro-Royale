@@ -51,7 +51,7 @@
   <details class="profileTransfer"><summary>Transferir progresso de visitante</summary><p>Guarde seu código antes de trocar de aparelho ou reinstalar o APK. Ele recupera o perfil de visitante salvo no servidor.</p><button id="copyRecovery" class="chip" type="button">Copiar meu código</button><label for="recoveryCode">Código de recuperação</label><input id="recoveryCode" type="password" maxlength="72" autocomplete="off" spellcheck="false" placeholder="Cole o código do seu outro aparelho"><button id="restoreRecovery" class="chip" type="button">Restaurar perfil</button><small id="recoveryStatus" role="status"></small></details>
   <div class="menuTabs" style="display:none"><button class="on" id="deckTab">Baralho</button><button id="collectionTab">Coleção</button></div>
   <div class="deckBox"><div class="secttl"><h2>Seu baralho</h2><span id="deckCnt">8 / 8</span></div><div id="deckPreview" aria-label="Oito cartas do baralho: 1º espaço de Evolução, 2º de Herói, 3º curinga"></div><div class="deckSummary"><span class="avgElixir" title="Custo médio de elixir"><i aria-hidden="true"></i><b id="avgCost">0.0</b></span><span id="deckTip"></span></div></div>
-    <details id="deckDetails"><summary>Alterar baralho <span>＋</span></summary><p class="poolHint">Toque para tirar ou pôr cartas. O baralho tem 8.</p><div id="pool"></div></details>
+    <details id="deckDetails"><summary>Alterar baralho <span>＋</span></summary><p class="poolHint">Toque numa carta para ver as informações, usar ou tirar do baralho. O baralho tem 8.</p><div id="pool"></div></details>
   <div class="secttl"><h2>Modo online</h2><span class="rule"></span></div>
   <p class="siteNote comOnline">Neste site o treino roda aqui mesmo. As batalhas online e a conta abrem na versão do jogo com servidor.</p><p class="siteNote semOnline">O online ainda não está no ar. Por enquanto, treine contra a IA!</p>
   <div class="modeChoices" aria-label="Modos de batalha"><button class="modeButton on" data-mode="1v1">1v1<small>Duelo</small></button><button class="modeButton" data-mode="2v1">2v1<small>Dupla × solo</small></button><button class="modeButton" data-mode="2v2">2v2<small>Duplas</small></button><button class="modeButton" data-mode="3v1">3v1<small>Trio × solo</small></button></div>
@@ -76,7 +76,10 @@
 </dialog>
 
 <dialog id="settingsDialog" aria-labelledby="settingsTitle"><button class="closeDialog" id="closeSettings" aria-label="Fechar configurações">×</button><h2 id="settingsTitle">Configurações</h2>
- <div class="settingsTools"><button id="soundBtn" class="chip" aria-pressed="true">♪ Som</button><button id="fxBtn" class="chip" aria-pressed="true">✧ VFX</button><button id="lightBtn" class="chip" aria-pressed="false">Modo leve</button><button id="viewBtn" class="chip" aria-label="Mudar vista da câmera 3D">◈ Vista</button></div>
+ <div class="settingsTools"><button id="soundBtn" class="chip" aria-pressed="true">♪ Som</button><button id="fxBtn" class="chip" aria-pressed="true">✧ VFX</button><button id="viewBtn" class="chip" aria-label="Mudar vista da câmera 3D">◈ Vista</button></div>
+ <h3 class="settingsLabel">Gráfico</h3>
+ <div class="settingsTools graficoPick"><button class="chip" data-grafico="leve" type="button" aria-pressed="false">Leve<small>mais rápido</small></button><button class="chip gold" data-grafico="normal" type="button" aria-pressed="true">Normal<small>automático</small></button><button class="chip" data-grafico="ultra" type="button" aria-pressed="false">Ultra<small>mais bonito</small></button></div>
+ <p class="graficoNota" id="graficoNota"></p>
  <h3 class="settingsLabel">Posição do botão da habilidade</h3>
  <div class="settingsTools abilityPos"><button class="chip" data-ability-position="left" type="button">Esquerda</button><button class="chip" data-ability-position="right" type="button">Direita</button><button class="chip" data-ability-position="both" type="button">Dos dois lados</button></div>
  </dialog>

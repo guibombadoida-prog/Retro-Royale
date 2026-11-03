@@ -26,7 +26,7 @@ const PROGRESS={
    else if(!this.dirty)this.applyCloud();
   }catch(e){const label=document.getElementById('cloudStatus');if(label)label.textContent='Sem conexão com o progresso · tentaremos novamente';}
  },
- snapshot(){return {deck:deckSel.slice(),settings:{abilityPosition:document.body.dataset.abilityPosition||'right',difficulty:diffSel,sound:AU.on,fx:PREF.fx,light:PREF.light,nickname:document.getElementById('playerName')?.value||''}};},
+ snapshot(){return {deck:deckSel.slice(),settings:{abilityPosition:document.body.dataset.abilityPosition||'right',difficulty:diffSel,sound:AU.on,fx:PREF.fx,light:PREF.light,graphics:PREF.grafico,nickname:document.getElementById('playerName')?.value||''}};},
  remember(){try{localStorage.setItem('retro-cloud-pending',JSON.stringify({owner:typeof ACCOUNT!=='undefined'&&ACCOUNT.user?ACCOUNT.user.id:'guest:'+this.token,revision:this.revision,state:this.snapshot()}));}catch(e){}},
  applyCloud(){
   if(!this.cloud||typeof G==='undefined'||G.state!=='menu'||typeof NET!=='undefined'&&NET.room)return;this.hydrating=true;
@@ -35,7 +35,10 @@ const PROGRESS={
    if(['left','right','both'].includes(s.abilityPosition)){document.body.dataset.abilityPosition=s.abilityPosition;try{localStorage.setItem('retro-ability-position',s.abilityPosition);}catch(e){}for(const b of document.querySelectorAll('button[data-ability-position]')){b.classList.toggle('gold',b.dataset.abilityPosition===s.abilityPosition);b.setAttribute('aria-pressed',b.dataset.abilityPosition===s.abilityPosition);}}
    if([0,1,2].includes(s.difficulty)){diffSel=s.difficulty;for(const b of document.querySelectorAll('[data-diff]'))b.classList.toggle('on',Number(b.dataset.diff)===diffSel);}
    if(typeof s.sound==='boolean'){AU.on=s.sound;const b=document.getElementById('soundBtn');b.setAttribute('aria-pressed',AU.on);b.textContent=AU.on?'♪ Som':'♪ Mudo';}
-   for(const k of ['fx','light'])if(typeof s[k]==='boolean'){PREF[k]=s[k];document.getElementById(k==='fx'?'fxBtn':'lightBtn').setAttribute('aria-pressed',PREF[k]);}
+   if(typeof s.fx==='boolean'){PREF.fx=s.fx;document.getElementById('fxBtn').setAttribute('aria-pressed',PREF.fx);}
+   // Gráfico salvo (Leve/Normal/Ultra); perfis antigos só têm o "modo leve" ligado ou desligado.
+   const grafico=['leve','normal','ultra'].includes(s.graphics)?s.graphics:typeof s.light==='boolean'?(s.light?'leve':'normal'):null;
+   if(grafico){if(typeof setGraphics==='function')setGraphics(grafico);else{PREF.grafico=grafico;PREF.light=grafico==='leve';}}
    if(typeof s.nickname==='string')document.getElementById('playerName').value=s.nickname;FX.reduced=!PREF.fx;if(typeof CHAMP_UI!=='undefined')CHAMP_UI.key='';buildPool();syncDeck();
   }finally{this.hydrating=false;}
  },

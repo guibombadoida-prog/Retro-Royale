@@ -27,7 +27,8 @@ eq((await h.call('/api/account/config')).data,{emailReady:true,provider:'email-c
 eq((await h.call('/api/account/authorize')).status,404);eq((await h.call('/api/account/login',{})).status,404);
 const first=await guest(),guestHash=await hash(first.token);eq(first.unlocked,[]);
 h.database.prepare("UPDATE player_profiles SET battles=1,unlocked='[]' WHERE token_hash=?").run(guestHash);h.database.prepare('INSERT INTO profile_battles VALUES (?,?)').run(guestHash,'ABC123');
-const saved=await h.call('/api/profile',{token:first.token,save:true,revision:0,deck:normal,settings:{abilityPosition:'left',nickname:'Player',extra:'ignored'}});eq(saved.status,200);eq(saved.data.settings,{abilityPosition:'left',nickname:'Player'});
+const saved=await h.call('/api/profile',{token:first.token,save:true,revision:0,deck:normal,settings:{abilityPosition:'left',nickname:'Player',extra:'ignored',graphics:'ultra'}});eq(saved.status,200);eq(saved.data.settings,{abilityPosition:'left',graphics:'ultra',nickname:'Player'});
+eq((await h.call('/api/profile',{token:first.token,save:true,revision:saved.data.revision,deck:normal,settings:{abilityPosition:'left',nickname:'Player',graphics:'turbo'}})).data.settings,{abilityPosition:'left',nickname:'Player'});
 const flow=await begin(first,'  P.la.yer+arena@GoogleMail.com ');eq(flow.start.data.email,'player@gmail.com');eq(h.deliveries.at(-1).to,['player@gmail.com']);
 const stored=h.database.prepare('SELECT * FROM email_login_codes').get();eq(stored.code_hash,await hash(flow.start.data.challenge+'.'+flow.code));ok(!JSON.stringify(stored).includes(flow.start.data.challenge));eq(stored.attempts,0);
 eq((await h.call('/api/account/request-code',{profileToken:first.token,email:'player+another@gmail.com'})).status,429);eq(h.deliveries.length,1);
