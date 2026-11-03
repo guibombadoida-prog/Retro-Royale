@@ -51,10 +51,10 @@ assert.equal(run('target.hp'),run('initialHP'));assert.ok(run('attacker.attackWi
 run('for(let i=0;i<20;i++)stepUnit(attacker,1/60)');assert.ok(run('target.hp')<run('initialHP'));
 const triangles=o=>{let t=0;o.traverse(c=>{if(c.isMesh&&!c.userData.outline)t+=(c.geometry.index?c.geometry.index.count:c.geometry.attributes.position.count)/3;});return t;};
 const finite=o=>{o.traverse(c=>{for(const v of [...c.position,...c.rotation.toArray().slice(0,3),...c.scale])assert.ok(Number.isFinite(v),c.name+' tem valor inválido');});};
-for(const art of ['knight','archer','goblin','giant','bomber','bat','princess']){
+for(const art of ['knight','archer','goblin','giant','bomber','bat','princess','icewizard']){
  const model=unitModel(art,'ally'),rig={};for(const key of ['leftLeg','rightLeg','leftArm','rightArm','leftWing','rightWing','head','prop'])rig[key]=model.getObjectByName(key);
  if(art==='bat')assert.ok(rig.leftWing&&rig.rightWing);else for(const key of ['leftLeg','rightLeg','leftArm','rightArm','head'])assert.ok(rig[key],art+' sem '+key);
- if(art==='bomber')assert.ok(rig.prop,'bombardeiro sem a bomba separada');
+ if(art==='bomber'||art==='icewizard')assert.ok(rig.prop,art+' sem o projétil separado na mão');
  assert.ok(model.userData.style&&model.userData.height>.5);
  // Orçamento do celular: cada tropa (sem o contorno) fica abaixo de 4.500 triângulos.
  assert.ok(triangles(model)<4500,art+' tem '+triangles(model)+' triângulos');
@@ -127,7 +127,7 @@ assert.equal(run('kn.z'),0);assert.equal(run('!!kn.caindo'),false);assert.equal(
 run(`G.units.length=0;G.projs.length=0;globalThis.pr=spawnUnit('princesa','ally',576,1100,{deploy:0});globalThis.gg=spawnUnit('gigante','foe',576,950,{deploy:0});pr.static=gg.static=true;globalThis.casts=[];
  globalThis.t=0;world(10,()=>{t+=1/60;if(pr.cast>0&&(!casts.length||t-casts.at(-1)>1))casts.push(t);});`);
 assert.equal(run('casts.length'),2);assert.ok(Math.abs(run('casts[1]-casts[0]')-4.5)<.1,'recarga de 4,5 s');
-// Baralho com a Princesa: oito cartas diferentes entre as nove; a IA também pode usar.
+// Baralho com a Princesa: oito cartas diferentes entre as dez; a IA também pode usar.
 assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos']).join()`),'princesa,arqueiras,goblins,gigante,bolide,estalo,bombardeiro,morcegos');
 assert.equal(run(`PROGRESS.sanitize(['princesa','princesa','goblins','gigante','bolide','estalo','bombardeiro','morcegos'])[0]`),'cavaleiro','repetida volta ao padrão');
 assert.equal(run(`PROGRESS.sanitize(['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','reibombado'])[0]`),'cavaleiro','carta removida volta ao padrão');
@@ -147,6 +147,27 @@ run(`G.units.length=0;G.projs.length=0;globalThis.kn=spawnUnit('cavaleiro','foe'
  for(let i=0;i<60*2;i++){stepUnit(kn,1/60);stepTower(tw,1/60);stepProjs(1/60);}globalThis.lost=hp0-kn.hp;`);
 assert.ok(run('kn.z')>60&&run('lost')>=run('tw.dmg')*2,'a torre acerta a tropa flutuando na bolha');
 console.log('Air targets: every tower and archer shot hits a bat at any height of its flight and a troop floating in a bubble.');
+// Mago de Gelo: bola de gelo em área (no chão e no ar) que deixa lento por 2 s; torres também ficam lentas.
+run(`G.units.length=0;G.projs.length=0;FX.clear();globalThis.mg=spawnUnit('mago','ally',576,1100,{deploy:0});mg.static=true;
+ globalThis.k1=spawnUnit('cavaleiro','foe',576,820,{deploy:0});globalThis.k2=spawnUnit('cavaleiro','foe',620,830,{deploy:0});globalThis.bt=spawnUnit('morcegos','foe',560,800,{deploy:0});
+ for(const u of [k1,k2,bt]){u.static=true;u.maxHp=u.hp=1e6;}globalThis.fx=[];globalThis.realFrost=frostBurst;frostBurst=(...a)=>{fx.push(a);return realFrost(...a);};
+ globalThis.firstHit=null;for(let i=0;i<60*4&&!firstHit;i++){stepUnit(mg,1/60);stepProjs(1/60);if(k1.lento>0)firstHit={k1:k1.lento,k2:k2.lento,bt:bt.lento,hp:1e6-k1.hp};}frostBurst=realFrost;`);
+assert.ok(run('firstHit'),'o Mago atira e a bola de gelo acerta');
+assert.equal(run('firstHit.hp'),110,'dano de 110');assert.ok(run('firstHit.k2>1.9&&firstHit.bt>1.9'),'a área pega o vizinho e o morcego no ar');
+assert.equal(run('k1.lentoK'),.35);assert.ok(run('fx.length')>=1&&run(`NET_FX.includes('frostBurst')`),'o efeito vai para o convidado');
+// Lento: anda 35% mais devagar e ataca 35% mais devagar; passa depois de 2 s.
+run(`G.units.length=0;G.projs.length=0;globalThis.w1=spawnUnit('cavaleiro','foe',300,600,{deploy:0});globalThis.w2=spawnUnit('cavaleiro','foe',800,600,{deploy:0});
+ chill(w1,CARD.mago.gelo);const a={x:w1.x,y:w1.y},b={x:w2.x,y:w2.y};for(let i=0;i<60;i++){stepUnit(w1,1/60);stepUnit(w2,1/60);}globalThis.walk=[Math.hypot(w1.x-a.x,w1.y-a.y),Math.hypot(w2.x-b.x,w2.y-b.y)];`);
+assert.ok(Math.abs(run('walk[0]/walk[1]')-.65)<.03,'anda 35% mais devagar: '+run('walk[0]/walk[1]'));
+run(`for(let i=0;i<70;i++)stepUnit(w1,1/60);`);assert.equal(run('w1.lento'),0,'a lentidão passa depois de 2 s');
+run(`globalThis.tw=G.towers.find(t=>t.side==='ally'&&!t.king);tw.alive=tw.active=true;globalThis.dummy=spawnUnit('gigante','foe',tw.x,tw.y-200,{deploy:0});dummy.static=true;dummy.maxHp=dummy.hp=1e6;
+ globalThis.countShots=lento=>{tw.lento=0;tw.atkT=0;if(lento)chill(tw,{lento:.35,dura:99});G.projs.length=0;let n=0;const real=shoot;shoot=(...a)=>{n++;return real(...a);};for(let i=0;i<60*6;i++)stepTower(tw,1/60);shoot=real;return n;};
+ globalThis.shots=[countShots(false),countShots(true)];tw.lento=0;`);
+assert.ok(run('shots[1]<shots[0]*.75'),'torre lenta atira menos: '+run('shots.join()'));
+assert.ok(JSON.parse(JSON.stringify(run(`netPick([Object.assign(spawnUnit('cavaleiro','foe',100,100,{deploy:0}),{lento:1.5})],'unit')[0]`))).lento===1.5,'a lentidão vai para o convidado');
+assert.ok(run(`PROGRESS.sanitize(['mago','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos']).join()`)==='mago,arqueiras,goblins,gigante,bolide,estalo,bombardeiro,morcegos','baralho com o Mago');
+assert.ok(run(`FOE_DECKS.some(d=>d.includes('mago'))`),'a IA também joga com o Mago');
+console.log('Mago de Gelo: area ice ball hits ground and air, 110 damage, 35% slow on movement and attacks for 2 s (towers too), slow and effect reach guests, AI deck and 8-of-10 deck validation.');
 console.log('Princesa da Bolha: automatic bubble after cooldown, ground enemies float without moving or attacking, 180 pop + 120 fall damage, air units spared, 4.5 s recharge, state and effects reach guests, 8-of-9 deck validation.');
 
 // Herói Princesa: só no 2º (Herói) ou 3º (Curinga) espaço do baralho; "Chuva de bolhas" custa 3 de elixir,

@@ -347,6 +347,9 @@ export class Arena3D{
     if(time-(n.sparkAt||0)>.45){n.sparkAt=time;const a=Math.random()*TAU;this.spawn({kind:'spark',x:e.x+Math.cos(a)*r*64,y:e.y+Math.sin(a)*r*64,h:.2+Math.random()*.6,vx:0,vz:0,vy:1.1,g:0,c:'#ffd84d',s:.07,life:.7});}
     // Princesa Herói (design do dono): três bolhas flutuando em volta dela.
     if(e.card.bolha){const h=m.userData.height||1.6;for(let i=0;i<3;i++){const a=time*1.3+i*TAU/3+(e.id||0);this.bubbles.get(m.position.x+Math.cos(a)*.62,m.position.y+h*(.45+.15*Math.sin(time*2+i*2)),m.position.z+Math.sin(a)*.62/1.25,.09+.03*i,time);}}}
+   // Lento pelo Mago de Gelo: anel de geada em volta e flocos de neve caindo (tropas e torres).
+   if(e.lento>0){const r=tower?1.25:(e.r||24)/64*1.9;this.feet.add(m.position.x,.06,m.position.z,r,'#9fe6ff');
+    if(time-(n.snowAt||0)>.18){n.snowAt=time;const a=Math.random()*TAU,h=(m.userData.height||1.5)*(tower?.9:1)+.2;this.spawn({kind:'spark',x:e.x+Math.cos(a)*r*40,y:e.y+Math.sin(a)*r*40,h:h+(e.air?.6:0),vx:0,vz:0,vy:-.6,g:.5,c:'#ffffff',s:.06,life:.9});}}
    if(!tower){const r=(e.r||24)/64;if(!e.air)this.feet.add(m.position.x,.05,m.position.z,r*1.6,palette[e.side]);this.blobs?.add(m.position.x,.035,m.position.z,r*(e.air?1.1:1.5),'#1d3812');}
    const show=tower||e.hp<e.maxHp;n.bar.el.hidden=!show;
    if(show){m.getWorldPosition(v3);v3.y+=(m.userData.height||2.5)+.17;v3.project(this.camera);n.bar.el.style.transform=`translate(${(v3.x*.5+.5)*this.w}px,${(-v3.y*.5+.5)*this.h}px) translate(-50%,-100%)`;const value=Math.ceil(Math.max(0,e.hp));if(n.bar.value!==value){n.bar.value=value;n.bar.text.textContent=tower?value:'';n.bar.fill.style.transform=`scaleX(${clamp(e.hp/e.maxHp,0,1)})`;n.bar.fill.style.background=palette[e.side];}n.bar.el.hidden=Math.abs(v3.x)>1||Math.abs(v3.y)>1;}
@@ -406,6 +409,15 @@ export class Arena3D{
    this.spawn({kind:'shock',x:X,y:Y,r0:R*.2,r1:R*1.1,life:.4,c:'#9fe6ff'});
    for(let i=0;i<n(8);i++){const a=i/8*TAU;this.spawn({kind:'drop',x:X+Math.cos(a)*R*48,y:Y+Math.sin(a)*R*48,h:.1,vx:Math.cos(a)*.8,vz:Math.sin(a)*.8,vy:rand(2.4,3.6),r:.05,c:'#bff1ff',life:.6,g:9});}
   }else if(b.k==='land'){this.dust(X,Y,(b.r||24)/64);}
+  else if(b.k==='frost'){
+   // Bola de gelo estourando: clarão gelado, onda branca e azul, cristais voando e neve caindo.
+   const R=Math.max(.4,(b.r||77)/64);
+   this.spawn({kind:'flash',x:X,y:Y,h:.5,r:R*.7,life:.12,c:'#e6faff'});
+   this.spawn({kind:'shock',x:X,y:Y,r0:R*.2,r1:R*1.15,life:.4,c:'#bff1ff'});
+   this.spawn({kind:'ball',x:X,y:Y,h:.35,r0:R*.2,r1:R*.55,c:'#ffffff',c2:'#bff1ff',life:.25,a:.8});
+   for(let i=0;i<n(7);i++){const a=i/7*TAU+Math.random()*.5,sp=rand(1.6,3);this.spawn({kind:'chunk',x:X,y:Y,h:.4,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:rand(2,3.5),r:rand(.05,.09),life:.6,c:i%2?'#bff1ff':'#e9fbff'});}
+   for(let i=0;i<n(9);i++){const a=Math.random()*TAU,d=Math.random()*R*48;this.spawn({kind:'spark',x:X+Math.cos(a)*d,y:Y+Math.sin(a)*d,h:rand(.6,1.3),vx:0,vz:0,vy:-.5,g:.6,c:'#ffffff',s:.06,life:rand(.6,.9)});}
+  }
   else if(b.k==='rain'){
    // Chuva de bolhas do Herói: clarão dourado, ondas dourada e azul e bolhas subindo em toda a área.
    const R=(b.r||200)/64;
@@ -505,12 +517,13 @@ export class Arena3D{
   for(const p of G.projs.slice(-100)){
    const k=clamp(p.t/p.dur,0,1),lift=mix(p.lift0||45,p.lift1||25,k),h=.25+((p.z||0)+lift)/64,D=Math.max(1,Math.hypot(p.tx-p.sx,p.ty-p.sy));
    if(p.kind==='bubble'){this.bubbles.get(p.x/64-9,h,(p.y+lift)/64-13,.3+Math.sin(time*9)*.02,time);continue;}
-   const kind=['arrow','bolt','bomb','ball'].includes(p.kind)?p.kind:null;
+   const kind=['arrow','bolt','bomb','ball','ice'].includes(p.kind)?p.kind:null;
    if(!kind){this.orb(p.x,p.y+lift,h,(p.r||3)/64*1.6,p.col||'#ffca76');continue;}
    const m=this.projectiles.get(kind+':'+(p.side||'ally')),ang=p.ang||0;
    const slope=((PROJ_ARC[kind]||0)*Math.PI*Math.cos(k*Math.PI)*D*.5+((p.lift1||25)-(p.lift0||45)))/D;
    m.position.set(p.x/64-9,h,(p.y+lift)/64-13);
    if(kind==='bomb'||kind==='ball'){m.rotation.set(time*9,ang,0);}
+   else if(kind==='ice'){m.rotation.set(time*5,time*7,0);if(quality>.5)this.orb(p.x,p.y+lift,h,.16,'#bff1ff',.5);}
    else m.rotation.set(-Math.atan(slope)*.8,Math.PI/2-ang,0,'YXZ');
    if(kind==='bolt'&&quality>.5)this.orb(p.x,p.y+lift,h,.09,'#ffe7a8',.55);
    // Rastro de luz atrás da flecha e do tiro da balestra.

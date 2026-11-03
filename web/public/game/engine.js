@@ -95,7 +95,7 @@ const CARDS = [
   { id:'morcegos', nome:'Morcegos', custo:2, tipo:'tropa', papel:'enxame aéreo', art:'bat', raridade:'comum',
     n:4, hp:75, dmg:55, hit:.95, range:.85, speed:1.40, sight:5.5, alvo:'ambos',
     raio:.24, massa:.4, deploy:1.0, ar:true },
-  { id:'princesa', nome:'Princesa da Bolha', custo:5, tipo:'tropa', papel:'prende em bolhas', art:'princess', nova:true, raridade:'lendaria',
+  { id:'princesa', nome:'Princesa da Bolha', custo:5, tipo:'tropa', papel:'prende em bolhas', art:'princess', raridade:'lendaria',
     hp:800, dmg:170, hit:1.1, range:1.0, speed:.75, sight:5.5, alvo:'chao',
     raio:.34, massa:1.0, deploy:1.0,
     // Habilidade automática: a cada `recarga` s lança uma bolha a até `alcance` casas. As tropas terrestres
@@ -105,6 +105,12 @@ const CARDS = [
     // tocando no botão, por elixir. Prende na hora tudo o que é inimigo em volta dela, inclusive voadores.
     heroi:{ id:'chuva', nome:'Chuva de bolhas', custo:3, recarga:10, raio:3.2,
       descricao:'Prende numa bolha, na hora, todas as tropas inimigas em volta dela, até as que voam.' } },
+  // Mago de Gelo (escolha do dono, 03/11/2026): bola de gelo em área que deixa lento.
+  { id:'mago', nome:'Mago de Gelo', custo:4, tipo:'tropa', papel:'deixa lento', art:'icewizard', nova:true, raridade:'epica',
+    hp:600, dmg:110, hit:1.5, range:5.0, speed:.75, sight:5.8, alvo:'ambos',
+    raio:.32, massa:.9, deploy:1.0, splash:1.2, proj:'ice',
+    // Quem está na área da bola fica lento por `dura` s: anda e ataca `lento` (35%) mais devagar; torres também.
+    gelo:{ lento:.35, dura:2 } },
 ];
 const CARD = Object.fromEntries(CARDS.map(c=>[c.id,c]));
 const POOL = CARDS.filter(c => !c.oculta);
@@ -121,7 +127,8 @@ const DEFAULT_DECK = ['cavaleiro','arqueiras','goblins','gigante','bolide','esta
 // A IA sorteia um destes: o baralho padrão ou um com a Princesa no lugar de uma carta.
 const FOE_DECKS = [DEFAULT_DECK,
   ['princesa','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'],
-  ['cavaleiro','arqueiras','princesa','gigante','bolide','estalo','bombardeiro','morcegos']];
+  ['cavaleiro','arqueiras','princesa','gigante','bolide','estalo','bombardeiro','morcegos'],
+  ['cavaleiro','mago','goblins','gigante','bolide','estalo','bombardeiro','morcegos']];
 
 /* ── 3. VFX: partículas, anéis, arcos, decalques, números ────────────── */
 const FX = {
@@ -239,6 +246,9 @@ function projTrail(p, chance=1){
   if(PROJ[p.kind]?.fiery && Math.random()<.6*chance)
     part({ x:p.x, y:p.y-p.z, vx:rnd(-14,14), vy:rnd(-14,14), vz:rnd(6,30), g:-30, drag:.9,
            life:rnd(.2,.5), max:.5, r:rnd(1.4,3), col:pick(['#FFC061','#FF7A2A','#FF4E12']), kind:'dot' });
+  if(PROJ[p.kind]?.frost && Math.random()<.55*chance)
+    part({ x:p.x, y:p.y-p.z, vx:rnd(-12,12), vy:rnd(-12,12), vz:rnd(-10,14), g:40, drag:.9,
+           life:rnd(.3,.6), max:.6, r:rnd(1,2.2), col:pick(['#FFFFFF','#DDF6FF','#9FE6FF']), kind:'dot' });
   if(PROJ[p.kind]?.magic && Math.random()<.5*chance)
     part({ x:p.x, y:p.y-p.z, vx:rnd(-10,10), vy:rnd(-10,10), vz:rnd(4,22), g:-10, drag:.9,
            life:rnd(.25,.55), max:.55, r:rnd(1,2.4), col:p.col, kind:'dot' });
@@ -287,6 +297,15 @@ function bubbleLand(x,y,r){
   smoke(x,y,6,'#C9B48C',38,r*.55);
   ring({ x,y, r0:r*.5, r1:r*2.4, life:.32, w:3, col:'#E8DCC0', sq:.5 });
   burst3({ k:'land', x, y, r });
+}
+// Bola de gelo do Mago estourando: anel e cristais de gelo, neve e uma mancha de geada no chão.
+// No online o convidado repete esta chamada (NET_FX em online.js).
+function frostBurst(x,y,R){
+  ring({ x,y, r0:R*.2, r1:R, life:.4, w:4, col:'#BFF1FF', sq:.5 });
+  ring({ x,y, r0:R*.7, r1:R*1.05, life:.55, w:2, col:'#FFFFFF', sq:.5 });
+  sparks(x,y,14,'#E6FAFF',200);
+  decal(x, y, R*.7, '#BFEFFF', .22, 2.5);
+  burst3({ k:'frost', x, y, r:R });
 }
 // Entrada de tropa: na hora em que a carta cai (coluna de luz do time) e ao pousar (`land`).
 function deployBurst(x,y,col,land=false){
@@ -390,6 +409,9 @@ const AU = {
       case 'win':    [523,659,784,1046,1318].forEach((f,i)=> this.tone(f,{type:'triangle',dur:.55,gain:.12*v,delay:i*.1})); break;
       case 'full':   this.tone(880,{type:'sine',dur:.14,gain:.07*v,to:1320}); break;
       case 'ui':     this.tone(620,{type:'square',dur:.04,gain:.045*v,to:900}); break;
+      case 'ice':    this.tone(1900,{type:'triangle',dur:.16,gain:.07*v,to:950});
+                     this.tone(2600,{type:'sine',dur:.22,gain:.05*v,to:1800,delay:.04});
+                     this.noiseHit({dur:.16,gain:.1*v,f:6200,sweep:2400,type:'bandpass',q:1.2}); break;
       case 'pop':    this.tone(420,{type:'sine',dur:.09,gain:.16*v,to:1500});
                      this.noiseHit({dur:.06,gain:.12*v,f:3200,sweep:5200,type:'bandpass',q:2.2});
                      this.tone(1900,{type:'sine',dur:.16,gain:.05*v,to:2600,delay:.03}); break;
@@ -471,7 +493,7 @@ const ART_BOX = { knight:[52,0], archer:[44,0], goblin:[36,-1], skeleton:[36,-1]
   ram:[52,-9], colossus:[90,1], mage:[56,-1], bomber:[38,-2], bat:[30,0], drake:[50,-3],
   cannon:[36,-2], coil:[48,0],
   bombking:[74,1], bpingo:[40,-2], bsirene:[40,-2], bogiva:[42,-2], bcoveiro:[42,-2],
-  kamikaze:[26,0], bwchamp:[52,-1], dollaltar:[54,0], hologram:[40,1], princess:[48,0] };
+  kamikaze:[26,0], bwchamp:[52,-1], dollaltar:[54,0], hologram:[40,1], princess:[48,0], icewizard:[50,0] };
 const ART = {
   /* — Cavaleiro: elmo com plumas, escudo e espada — */
   knight(g,C,ph,atk){
@@ -709,6 +731,30 @@ const ART = {
     ell(g,2.8,y-21.8,1,1.2,'#141922'); ell(g,3.4,y-19.6,1.2,.7,rgba('#FF7FA0',.55));
     poly(g,[[-3,y-26],[-2.4,y-30],[-.6,y-27.4],[1,y-31],[2.6,y-27.4],[4.4,y-30],[4.8,y-26]],T.gold);
     ell(g,1,y-28.4,1,1,'#9FE6FF');
+  },
+  /* — Mago de Gelo: túnica de gelo, chapéu pontudo do time, barba branca, cajado de cristal — */
+  icewizard(g,C,ph,atk){
+    const sw=Math.sin(ph)*3, bob=Math.abs(Math.sin(ph))*1.3;
+    cap(g,-1.6,-8,-2.6-sw,-1,3.2,'#5B6F9A'); cap(g,1.6,-8,2.6+sw,-1,3.2,'#5B6F9A');
+    const y=-7-bob;
+    // cajado com cristal na mão de trás
+    cap(g,-7.4,y+1,-6,y-24,1.4,'#8A5A2B');
+    poly(g,[[-6,y-31],[-3.8,y-26],[-6,y-22],[-8.2,y-26]],'#BFF1FF'); glow(g,-6,y-26.5,7,'#9FE6FF',.45);
+    // túnica em sino com barra branca
+    poly(g,[[-8,y+2],[8,y+2],[4.4,y-12],[-4.4,y-12]],'#9FD2F5');
+    poly(g,[[0,y+2],[8,y+2],[4.4,y-12],[0,y-12]],'#BFE6FF');
+    cap(g,-8,y+1.4,8,y+1.4,2.2,'#FFFFFF'); cap(g,-4.4,y-6,4.4,y-6,1.6,C.main);
+    // cabeça, barba e chapéu do time
+    ell(g,.6,y-18,5,5,SKIN);
+    poly(g,[[-3.4,y-16.4],[4.6,y-16.4],[2.6,y-8],[.6,y-6.4],[-1.4,y-8]],'#F4F8FF');
+    cap(g,-2.6,y-19.6,.2,y-20.2,1,'#FFFFFF'); cap(g,2.2,y-20.2,4.8,y-19.6,1,'#FFFFFF');
+    ell(g,-1,y-18.6,.9,1.1,'#141922'); ell(g,3.4,y-18.6,.9,1.1,'#141922'); ell(g,1.2,y-17,1.2,1,'#F2A285');
+    poly(g,[[-6.6,y-21.4],[7.8,y-21.4],[3,y-35],[6,y-38]],C.main); poly(g,[[3,y-35],[6,y-38],[1,y-30]],shade(C.main,.2));
+    cap(g,-6.6,y-21.4,7.8,y-21.4,2,'#FFFFFF'); ell(g,3.6,y-28,1.3,1.3,'#BFF1FF');
+    // mão da frente: bola de gelo que some no arremesso
+    const th=Math.sin(atk*PI)*7;
+    cap(g,4,y-12,6+th*.4,y-8-th*.6,2.6,'#9FD2F5');
+    if(atk<.3){ ell(g,7+th*.5,y-9-th,3,3,'#DDF6FF'); glow(g,7+th*.5,y-9-th,6,'#9FE6FF',.5); }
   },
   /* — Morcego — */
   bat(g,C,ph,atk){
@@ -1238,7 +1284,8 @@ const PROJ = {
   fire: { speed:8.5*TILE, r:6, col:'#FF8A2E', trail:.7, arc:0, fiery:true },
   bomb: { speed:7.5*TILE, r:5.5, col:'#2E3440', trail:.25, arc:1 },
   ball: { speed:11*TILE, r:5, col:'#3B424E', trail:.25, arc:.55 },
-  bubble:{ speed:6*TILE, r:9, col:'#9FE6FF', trail:.3, arc:.35 }
+  bubble:{ speed:6*TILE, r:9, col:'#9FE6FF', trail:.3, arc:.35 },
+  ice:  { speed:9*TILE, r:6, col:'#BFF1FF', trail:.5, arc:.12, frost:true }
 };
 // Altura do ponto do corpo onde o tiro mira (torre: ameia; tropa: peito, mais a altura do voo ou da bolha).
 const aimLift = t => (t.kind==='tower' ? 40 : t.r*.8) + (t.z||0);
@@ -1278,6 +1325,15 @@ function impact(p){
   // O tiro chega no ponto de mira (no ar, para voadores e presos na bolha); `gy` é o chão embaixo dele.
   // Comparar o ponto no ar com o centro no chão fazia flechas e torres errarem morcegos no alto do voo.
   const gy = p.y + (p.aim||0);
+  if(p.kind==='ice'){
+    // Bola de gelo do Mago: dano em área e lentidão em todos que ela pega (tropas no chão e no ar, torres).
+    frostBurst(p.x, gy, p.splash);
+    AU.unit('mago', 'impact', 'ice', .5);
+    const hits = [];
+    eachEnemyOf(p.side, e=>{ if(dist(p.x,gy,e.x,e.y) < p.splash + (e.r||0)*.6) hits.push(e); });
+    for(const e of hits){ hurt(e, p.dmg, p.side); if(p.gelo) chill(e, p.gelo); }
+    return;
+  }
   if(p.splash > 0){
     const col = p.kind==='fire' ? '#FF8A2E' : p.kind==='bomb' ? '#FFB13C' : C;
     explode(p.x, gy, p.splash*.9, col);
@@ -1295,6 +1351,13 @@ function impact(p){
     }
   }
 }
+// Lentidão do Mago de Gelo: `lento` são os segundos restantes e `lentoK` quanto mais devagar (0,35 = 35%).
+function chill(e, g){
+  if(!(e.lento > 0)) e.lentoK = 0;
+  e.lentoK = Math.max(e.lentoK||0, g.lento);
+  e.lento = Math.max(e.lento||0, g.dura);
+}
+const slowK = e => e.lento > 0 ? 1 - (e.lentoK||0) : 1;
 function eachEnemyOf(sd, fn){
   for(const e of G.units) if(!e.dead && e.side!==sd) fn(e);
   for(const tw of G.towers) if(tw.alive && tw.side!==sd) fn(tw);
@@ -1898,7 +1961,7 @@ function releaseAttack(u,t){
  if(dist(u.x,u.y,t.x,t.y)-(t.r||0)-u.r>u.range+TILE*.35)return;
  u.atk=1;
       const c = u.card;
-      if(c.proj) { shoot(u, t, c.proj, c.dmg, c.splash); AU.unit(c.id, 'attack', c.proj==='bomb'?'cannon':c.proj==='fire'?'fire':c.proj==='orb'?'magic':'bow', .35); }
+      if(c.proj) { shoot(u, t, c.proj, c.dmg, c.splash); if(c.gelo) G.projs.at(-1).gelo = c.gelo; AU.unit(c.id, 'attack', c.proj==='bomb'?'cannon':c.proj==='fire'?'fire':c.proj==='orb'||c.proj==='ice'?'magic':'bow', .35); }
       else if(c.zap){
         bolt(u.x, u.y-46, t.x, t.y-(t.kind==='tower'?40:t.r), {n:6, jag:14, w:2.2, life:.14, col:'#CFF3FF'});
         hurt(t, c.dmg, u.side); sparks(t.x,t.y-(t.r||20),8,'#CFF3FF',180); AU.sfx('zap',.5);
@@ -1916,6 +1979,8 @@ function releaseAttack(u,t){
 function stepUnit(u, dt){
   u.moving=false;
   if(u.spawnT > 0){ u.spawnT -= dt; return; }
+  if(u.lento > 0) u.lento = Math.max(0, u.lento - dt);
+  const sk = slowK(u);   // lento pelo Mago de Gelo: anda, ataca e conjura mais devagar
   u.hurt = Math.max(0, u.hurt - dt*4.5);
   u.atk = Math.max(0, u.atk - dt*3.6);
   if(u.deploy > 0){ u.deploy -= dt; if(u.deploy<=0) deployBurst(u.x,u.y,side[u.side].main,true); return; }
@@ -1923,10 +1988,10 @@ function stepUnit(u, dt){
   if(u.desenho > 0){ u.desenho -= dt; }
   if(u.stun > 0){ u.stun -= dt; u.attackWindup=0;u.attackTarget=null;u.ph += dt*2; return; }
   if(u.life){ u.life -= dt; if(u.life<=0){ kill(u); return; } }
-  if(u.card.bolha && stepBubbleCaster(u, dt)) return;
+  if(u.card.bolha && stepBubbleCaster(u, dt*sk)) return;
 
   if(u.attackWindup>0){
-    u.attackWindup=Math.max(0,u.attackWindup-dt);
+    u.attackWindup=Math.max(0,u.attackWindup-dt*sk);
     if(u.attackWindup===0){releaseAttack(u,u.attackTarget);u.attackTarget=null;}
     u.ph+=dt*2;return;
   }
@@ -1952,7 +2017,7 @@ function stepUnit(u, dt){
       });
       u.hp = 0; kill(u); return;
     }
-    u.atkT -= dt;
+    u.atkT -= dt*sk;
     if(u.atkT <= 0){
       u.atkT = u.card.hit; u.atk = 1;
       u.atk=0;u.attackPrep=u.card.dmg>400?.24:u.card.proj?.18:.16;
@@ -1964,7 +2029,7 @@ function stepUnit(u, dt){
     const nav = navTarget(u);
     const a = Math.atan2(nav.y-u.y, nav.x-u.x);
     u.heading=a;u.moving=true;
-    const sp = u.speed;
+    const sp = u.speed*sk;
     u.x += Math.cos(a)*sp*dt; u.y += Math.sin(a)*sp*dt;
     if(Math.abs(Math.cos(a))>.12) u.facing = Math.cos(a)>0?1:-1;
     u.ph += dt * (4 + sp/TILE*3.2);
@@ -2024,6 +2089,7 @@ function stepTower(tw, dt){
   if(!tw.alive) return;
   tw.hurt = Math.max(0, tw.hurt - dt*4);
   tw.recoil = Math.max(0, tw.recoil - dt*4.5);
+  if(tw.lento > 0) tw.lento = Math.max(0, tw.lento - dt);
   if(!tw.active){
     // rei acorda ao ser atingido ou ao perder uma torre lateral
     const lost = G.towers.some(t=>t.side===tw.side && !t.king && !t.alive);
@@ -2040,7 +2106,7 @@ function stepTower(tw, dt){
     const want = Math.atan2(best.y-tw.y-(tw.king?-40:-30), best.x-tw.x);
     tw.aim = angLerp(tw.aim, want, Math.min(1, dt*7));
     if(tw.active){
-      tw.atkT -= dt;
+      tw.atkT -= dt*slowK(tw);
       if(tw.atkT<=0){
         tw.atkT = tw.hit; tw.recoil = 1;
         shoot(tw, best, 'bolt', tw.dmg, 0);

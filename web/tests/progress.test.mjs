@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
 const normal=['cavaleiro','arqueiras','goblins','gigante','bolide','estalo','bombardeiro','morcegos'],custom=['princesa',...normal.slice(1)].reverse(),token='a'.repeat(72);
-// As nove cartas do jogo (CARD vem do engine.js no navegador).
-const CARD=Object.fromEntries([...normal,'princesa'].map(id=>[id,{id}]));
+// As dez cartas do jogo (CARD vem do engine.js no navegador).
+const CARD=Object.fromEntries([...normal,'princesa','mago'].map(id=>[id,{id}]));
 function setup({pending=null,account=null,cloudDeck=null,site=null}={}){
  const memory=new Map([['retro-profile-token',token]]);if(pending)memory.set('retro-cloud-pending',JSON.stringify(pending));
  const fields=new Map(),get=id=>{if(!fields.has(id))fields.set(id,{textContent:'',value:'',setAttribute(){}});return fields.get(id);};let writes=0,requests=0;
